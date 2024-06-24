@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"path/filepath"
 
 	_ "embed"
 
@@ -12,10 +13,14 @@ import (
 var CREATE_SCHEMA string
 
 type Tagger struct {
-	db *sql.DB
+	db  *sql.DB
+	dir string
 }
 
 func (t *Tagger) Open(path string) {
+	dir, _ := filepath.Split(path)
+	t.dir = dir
+
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		panic(err.Error())

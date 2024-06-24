@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
-	"errors"
+	"net/http"
 	"os"
-	"path"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/skratchdot/open-golang/open"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -15,19 +17,12 @@ import (
 type TaggerApp struct {
 	ctx context.Context
 	Tagger
-	tempDir string
 }
 
 // startup is called at application startup
 func (a *TaggerApp) startup(ctx context.Context) {
 	// Perform your setup here
 	a.ctx = ctx
-
-	temp, err := os.MkdirTemp("", "tagger-")
-	if err != nil {
-		panic("Could not create temp directory")
-	}
-	a.tempDir = temp
 }
 
 // domReady is called after front-end resources have been loaded
@@ -39,7 +34,6 @@ func (a TaggerApp) domReady(ctx context.Context) {
 // either by clicking the window close button or calling runtime.Quit.
 // Returning true will cause the application to continue, false will continue shutdown as normal.
 func (a *TaggerApp) beforeClose(ctx context.Context) (prevent bool) {
-	os.RemoveAll(a.tempDir)
 	a.db.Close()
 
 	return false
@@ -51,18 +45,8 @@ func (a *TaggerApp) shutdown(ctx context.Context) {
 }
 
 func (a *TaggerApp) OpenDBDialog() string {
-	var defaultDirectory *string
-	homedir, err := os.UserHomeDir()
-	if err != nil {
-		defaultDirectory = nil
-	} else {
-		desktop := path.Join(homedir, "Desktop")
-		defaultDirectory = &desktop
-	}
-
 	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title:            "Choose Database",
-		DefaultDirectory: *defaultDirectory,
+		Title: "Choose Database",
 		Filters: []runtime.FileFilter{
 			{
 				DisplayName: "Database File",
@@ -95,29 +79,55 @@ func (a *TaggerApp) ImportFilesDialog() {
 }
 
 func (a *TaggerApp) OpenFile(file File) error {
-	if a.tempDir == "" {
-		return errors.New("no temp dir")
-	}
-
-	path := filepath.Join(a.tempDir, file.Hash+file.Filetype)
-
-	// check if the file exists before writing it
-	if _, err := os.Stat(path); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-
-		// file doesn't exist, write it
-		runtime.LogDebug(a.ctx, "WRITING FILE")
-		if err := os.WriteFile(path, file.Data, os.ModePerm); err != nil {
-			return err
-		}
-	}
-
-	// open the file
-	if err := open.Start(path); err != nil {
+	path := filepath.Join(a.dir, strconv.Itoa(file.Id)+file.Filetype)
+	err := open.Start(path)
+	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// App middleware responds to HTTP requests for files in the database
+// and serves them to the client
+func (a *TaggerApp) Middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// Handle requests starting with /file/
+			match, err := regexp.Match("/file/.+", []byte(r.URL.Path))
+			if err != nil {
+				w.Write([]byte(err.Error()))
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			if !match {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			fileIdString := strings.TrimPrefix(r.URL.Path, "/file/")
+			fileId, err := strconv.Atoi(fileIdString)
+			if err != nil {
+				w.Write([]byte(err.Error()))
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			file := a.GetFile(fileId)
+			if file == nil {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			filePath := a.GetFilepath(*file)
+
+			data, err := os.ReadFile(filePath)
+			if err != nil {
+				w.Write([]byte(err.Error()))
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+
+			w.Write(data)
+		})
 }

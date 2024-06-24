@@ -1,7 +1,7 @@
 import { get, writable } from "svelte/store";
 import { GetAllFiles, GetAllTags, GetFiles, Open, OpenDBDialog, ImportFile, GetFile, RemoveFile, UntagFile, TagFile, GetTag, AddTag, OpenFile, GetUntaggedFiles, RemoveTag, ImportFilesDialog } from "./wailsjs/go/main/TaggerApp";
 import { main } from "./wailsjs/go/models";
-import { EventsOn, LogDebug, LogError, OnFileDrop } from "./wailsjs/runtime/runtime";
+import { OnFileDrop } from "./wailsjs/runtime/runtime";
 
 type StoreContents = {
   files: main.File[];
@@ -57,7 +57,7 @@ function CreateStore() {
   }
 
   async function selectFile(file: main.File) {
-    const fullFile = await GetFile(file.hash)
+    const fullFile = await GetFile(file.id)
     update(s => ({
       ...s,
       currentFile: fullFile

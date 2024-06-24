@@ -13,12 +13,15 @@ import (
 )
 
 type File struct {
+	// File
+	Id          int    `json:"id"`
 	Hash        string `json:"hash"`
-	Data        []byte `json:"data"`
 	Filetype    string `json:"filetype"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	Tags        []Tag  `json:"tags"`
+
+	// FileTags
+	Tags []Tag `json:"tags"`
 }
 
 func hash(data []byte) string {
@@ -34,7 +37,7 @@ func rowsToFiles(rows *sql.Rows) []File {
 		var name sql.NullString
 		var description sql.NullString
 
-		err := rows.Scan(&file.Hash, &file.Filetype, &name, &description)
+		err := rows.Scan(&file.Id, &file.Hash, &file.Filetype, &name, &description)
 		if err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
 				fmt.Println(err.Error())
@@ -54,6 +57,10 @@ func rowsToFiles(rows *sql.Rows) []File {
 	return files
 }
 
+func (t *Tagger) GetFilepath(file File) string {
+	return filepath.Join(t.dir, strconv.Itoa(file.Id)+file.Filetype)
+}
+
 func (t *Tagger) ImportFile(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -64,33 +71,49 @@ func (t *Tagger) ImportFile(path string) error {
 
 	file := File{
 		Hash:        hash(data),
-		Data:        data,
-		Filetype:    strings.ToLower(filepath.Ext(filename)),
+		Filetype:    filepath.Ext(filename),
 		Description: filename,
 	}
 
-	if err := t.AddFile(file); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (t *Tagger) AddFile(file File) error {
-	_, err := t.db.Exec(
-		"INSERT INTO Files(Hash, Data, Filetype, Description) VALUES(?, ?, ?, ?)",
-		file.Hash, file.Data, file.Filetype, file.Description)
-
+	// Insert using a transaction in case copying the file fails
+	tx, err := t.db.Begin()
 	if err != nil {
 		return err
 	}
+	result, err := tx.Exec(
+		"INSERT INTO Files(Hash, Filetype, Description) VALUES(?, ?, ?)", file.Hash, file.Filetype, file.Description)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
+	file.Id = int(id)
+	newPath := t.GetFilepath(file)
+
+	err = os.WriteFile(newPath, data, 0777)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	tx.Commit()
 	return nil
 }
 
+// Remove a file from the database and disk
+// If the file is not found on disk, assume that it was deleted and proceed normally
 func (t *Tagger) RemoveFile(file File) error {
-	_, err := t.db.Exec("DELETE FROM Files WHERE Hash = ?", file.Hash)
+	err := os.Remove(t.GetFilepath(file))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
 
+	_, err = t.db.Exec("DELETE FROM Files WHERE Id = ?", file.Id)
 	if err != nil {
 		return err
 	}
@@ -98,15 +121,15 @@ func (t *Tagger) RemoveFile(file File) error {
 	return nil
 }
 
-func (t *Tagger) GetFile(hash string) *File {
+func (t *Tagger) GetFile(id int) *File {
 	// Get the file
-	row := t.db.QueryRow("SELECT Hash, Data, Filetype, Name, Description FROM Files WHERE Hash = ?", hash)
+	row := t.db.QueryRow("SELECT Id, Hash, Filetype, Name, Description FROM Files WHERE Id = ?", id)
 
 	file := &File{}
 	var name sql.NullString
 	var description sql.NullString
 
-	err := row.Scan(&file.Hash, &file.Data, &file.Filetype, &name, &description)
+	err := row.Scan(&file.Id, &file.Hash, &file.Filetype, &name, &description)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			fmt.Println(err.Error())
@@ -122,7 +145,7 @@ func (t *Tagger) GetFile(hash string) *File {
 	}
 
 	// Get it's tags
-	rows, err := t.db.Query("SELECT Id, Name FROM Tags INNER JOIN FileTag on Id = TagId WHERE FileHash = ?", file.Hash)
+	rows, err := t.db.Query("SELECT Id, Name FROM Tags LEFT JOIN FileTag on Id = TagId WHERE FileId = ?", file.Id)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -145,7 +168,7 @@ func (t *Tagger) GetFile(hash string) *File {
 }
 
 func (t *Tagger) GetAllFiles() []File {
-	rows, err := t.db.Query("SELECT Hash, Filetype, Name FROM Files ORDER BY RANDOM()")
+	rows, err := t.db.Query("SELECT Id, Hash, Filetype, Name, Description FROM Files ORDER BY RANDOM()")
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			fmt.Println(err.Error())
@@ -168,12 +191,12 @@ func (t *Tagger) GetFiles(tags []Tag) []File {
 
 	// I don't like this but doing it properly didn't work
 	query := fmt.Sprintf(`
-	SELECT Hash, Filetype, Name, Description
+	SELECT Id, Hash, Filetype, Name, Description
 	FROM Files
 	INNER JOIN FileTag
-		ON Hash = FileHash
+		ON Id = FileId
 		WHERE TagId IN (%s)
-		GROUP BY FileHash
+		GROUP BY Id
 		HAVING COUNT (*) >= %d
 		`,
 		strings.Join(tag_ids, ","),
@@ -193,9 +216,9 @@ func (t *Tagger) GetFiles(tags []Tag) []File {
 
 func (t *Tagger) GetUntaggedFiles() ([]File, error) {
 	rows, err := t.db.Query(`
-		SELECT Hash, Filetype, Name, Description FROM Files
-		LEFT JOIN FileTag ON FileHash = Hash
-		GROUP BY Hash
+		SELECT Id, Hash, Filetype, Name, Description FROM Files
+		LEFT JOIN FileTag ON FileId = Id
+		GROUP BY Id
 		HAVING COUNT(TagId) = 0
 	`)
 
@@ -209,21 +232,8 @@ func (t *Tagger) GetUntaggedFiles() ([]File, error) {
 	return rowsToFiles(rows), nil
 }
 
-func (t *Tagger) ReadFile(file File) *File {
-	// Get the file
-	row := t.db.QueryRow("SELECT Data FROM Files WHERE Hash = ?", file.Hash)
-
-	err := row.Scan(&file.Data)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil
-	}
-
-	return &file
-}
-
 func (t *Tagger) TagFile(file File, tag Tag) error {
-	_, err := t.db.Exec("INSERT INTO FileTag(FileHash, TagId) VALUES(?, ?)", file.Hash, tag.Id)
+	_, err := t.db.Exec("INSERT INTO FileTag(FileId, TagId) VALUES(?, ?)", file.Id, tag.Id)
 	if err != nil {
 		return err
 	}
@@ -231,7 +241,7 @@ func (t *Tagger) TagFile(file File, tag Tag) error {
 }
 
 func (t *Tagger) UntagFile(file File, tag Tag) error {
-	_, err := t.db.Exec("DELETE FROM FileTag WHERE FileHash = ? AND TagId = ?", file.Hash, tag.Id)
+	_, err := t.db.Exec("DELETE FROM FileTag WHERE FileId = ? AND TagId = ?", file.Id, tag.Id)
 	if err != nil {
 		return err
 	}

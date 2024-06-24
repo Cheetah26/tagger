@@ -35,8 +35,8 @@ export namespace main {
 		}
 	}
 	export class File {
+	    id: number;
 	    hash: string;
-	    data: number[];
 	    filetype: string;
 	    name: string;
 	    description: string;
@@ -48,8 +48,8 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
 	        this.hash = source["hash"];
-	        this.data = source["data"];
 	        this.filetype = source["filetype"];
 	        this.name = source["name"];
 	        this.description = source["description"];

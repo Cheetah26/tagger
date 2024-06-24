@@ -1,5 +1,6 @@
 <script lang="ts">
   import store from "./lib/store";
+  import { GetFilepath } from "./lib/wailsjs/go/main/TaggerApp";
   import type { main } from "./lib/wailsjs/go/models";
   import TagFileChip from "./tagFileChip.svelte";
 
@@ -83,12 +84,9 @@
 {:else}
   <!-- Preview file -->
   {#if imageFormats.includes(file.filetype)}
-    <img
-      src={`data:image/${file.filetype};base64,${file.data}`}
-      alt={file.hash}
-    />
+    <img src={`/file/${file.id}`} alt={file.hash} />
   {:else if videoFormats.includes(file.filetype) && videoPlayer.canPlayType(file.filetype) != ""}
-    <video src={`data:video/${file.filetype};base64,${file.data}`}>
+    <video src={`/file/${file.id}`}>
       <track kind="captions" />
     </video>
   {:else}
