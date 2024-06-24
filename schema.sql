@@ -1,0 +1,29 @@
+PRAGMA auto_vacuum = FULL;
+PRAGMA foreign_keys = ON;
+
+-- Data tables
+CREATE TABLE IF NOT EXISTS Tags (
+  Id INTEGER PRIMARY KEY,
+  Name TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS Files (
+  Hash TEXT PRIMARY KEY,
+  Data BLOB NOT NULL,
+  Filetype TEXT NOT NULL,
+  Name TEXT,
+  Description TEXT
+);
+
+-- Relationship tables
+CREATE TABLE IF NOT EXISTS FileTag (
+  FileHash TEXT REFERENCES Files(Hash)ON DELETE CASCADE,
+  TagId INTEGER REFERENCES Tags(Id) ON DELETE CASCADE,
+  PRIMARY KEY (FileHash, TagId)
+);
+
+CREATE TABLE IF NOT EXISTS TagTag (
+  ParentTagId INTEGER REFERENCES Tags(Id) ON DELETE CASCADE,
+  ChildTagId INTEGER REFERENCES Tags(Id) ON DELETE CASCADE,
+  PRIMARY KEY (ParentTagId, ChildTagId)
+);
