@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -94,18 +93,12 @@ func (a *TaggerApp) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			// Handle requests starting with /file/
-			match, err := regexp.Match("/file/.+", []byte(r.URL.Path))
-			if err != nil {
-				w.Write([]byte(err.Error()))
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-			if !match {
+			fileIdString, found := strings.CutPrefix(r.URL.Path, "/file/")
+			if !found {
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			fileIdString := strings.TrimPrefix(r.URL.Path, "/file/")
 			fileId, err := strconv.Atoi(fileIdString)
 			if err != nil {
 				w.Write([]byte(err.Error()))

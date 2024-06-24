@@ -5,7 +5,9 @@
   import TagChip from "./tagListChip.svelte";
 </script>
 
-<main class="grid grid-cols-[1fr_2fr_1fr] m-2">
+<main
+  class="max-h-screen overflow-hidden p-2 grid grid-cols-[1fr_2fr_1fr] grid-rows-[auto_1fr]"
+>
   <div class="col-span-3">
     <button on:click={store.open}>Open DB</button>
     <button on:click={store.importFiles}>Import</button>
@@ -13,7 +15,7 @@
     <hr />
   </div>
 
-  <div>
+  <div class="overflow-scroll">
     <p>Tags:</p>
     {#if $store.tags}
       {#each $store.tags as tag}
@@ -24,7 +26,7 @@
     {/if}
   </div>
 
-  <div>
+  <div class="overflow-scroll">
     <p>Files:</p>
     {#if $store.files}
       <ul>
@@ -39,7 +41,7 @@
     {/if}
   </div>
 
-  <div>
+  <div class="overflow-y-scroll">
     <p>Selected:</p>
     <DisplayFile file={$store.currentFile} />
   </div>

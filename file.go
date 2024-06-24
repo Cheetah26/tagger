@@ -58,7 +58,19 @@ func rowsToFiles(rows *sql.Rows) []File {
 }
 
 func (t *Tagger) GetFilepath(file File) string {
-	return filepath.Join(t.dir, strconv.Itoa(file.Id)+file.Filetype)
+	idStr := strconv.Itoa(file.Id)
+
+	var level1 string
+	var level2 string
+	if len(idStr) < 2 {
+		level1 = "0"
+		level2 = string(idStr[0])
+	} else {
+		level1 = string(idStr[0])
+		level2 = string(idStr[1])
+	}
+
+	return filepath.Join(t.dir, level1, level2, idStr+file.Filetype)
 }
 
 func (t *Tagger) ImportFile(path string) error {
@@ -95,6 +107,11 @@ func (t *Tagger) ImportFile(path string) error {
 	file.Id = int(id)
 	newPath := t.GetFilepath(file)
 
+	err = os.MkdirAll(filepath.Dir(newPath), 0777)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 	err = os.WriteFile(newPath, data, 0777)
 	if err != nil {
 		tx.Rollback()
@@ -168,7 +185,7 @@ func (t *Tagger) GetFile(id int) *File {
 }
 
 func (t *Tagger) GetAllFiles() []File {
-	rows, err := t.db.Query("SELECT Id, Hash, Filetype, Name, Description FROM Files ORDER BY RANDOM()")
+	rows, err := t.db.Query("SELECT Id, Hash, Filetype, Name, Description FROM Files")
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			fmt.Println(err.Error())
