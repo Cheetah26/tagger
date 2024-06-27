@@ -13,10 +13,12 @@
   let search = "";
   let results: Result[] = [];
 
-  $: tagsWithStrings = $store.tags.map((t) => ({
-    tag: t,
-    tagString: getTagString(t),
-  }));
+  $: tagsWithStrings = $store.tags
+    ? $store.tags.map((t) => ({
+        tag: t,
+        tagString: getTagString(t),
+      }))
+    : [];
 
   $: results = tagsWithStrings
     .filter((ts) => ts.tagString.includes(search))
