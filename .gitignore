@@ -4,3 +4,4 @@ dist/
 .DS_Store
 .idea
 build/bin
+frontend/src/lib/wailsjs/
