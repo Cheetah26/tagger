@@ -4,11 +4,12 @@
 
   export let file: main.File;
 
-  $: isCurrFile = $store.currentFile?.hash == file.hash;
+  $: highlight = $store.currentFile?.id == file.id ? "bg-green-300" : "";
 </script>
 
 <button
   on:click={() => store.selectFile(file)}
   on:dblclick={store.openCurrentFile}
-  class={isCurrFile ? "bg-green-300" : ""}>{file.hash}</button
+  class="w-full text-left {highlight}"
+  >{file.id + "\t:\t" + file.hash.substring(0, 10)}</button
 >

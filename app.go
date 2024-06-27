@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -78,7 +78,8 @@ func (a *TaggerApp) ImportFilesDialog() {
 }
 
 func (a *TaggerApp) OpenFile(file File) error {
-	path := filepath.Join(a.dir, strconv.Itoa(file.Id)+file.Filetype)
+	path := a.GetFilepath(file)
+	fmt.Println(path)
 	err := open.Start(path)
 	if err != nil {
 		return err

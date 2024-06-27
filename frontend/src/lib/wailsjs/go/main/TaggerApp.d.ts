@@ -15,6 +15,8 @@ export function GetFilepath(arg1:main.File):Promise<string>;
 
 export function GetFiles(arg1:Array<main.Tag>):Promise<Array<main.File>>;
 
+export function GetParentTags(arg1:main.Tag):Promise<Array<main.Tag>>;
+
 export function GetTag(arg1:string):Promise<main.Tag>;
 
 export function GetUntaggedFiles():Promise<Array<main.File>>;
@@ -38,3 +40,5 @@ export function RemoveTag(arg1:main.Tag):Promise<void>;
 export function TagFile(arg1:main.File,arg2:main.Tag):Promise<void>;
 
 export function UntagFile(arg1:main.File,arg2:main.Tag):Promise<void>;
+
+export function UpdateTag(arg1:main.Tag):Promise<void>;

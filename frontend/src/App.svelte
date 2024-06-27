@@ -2,7 +2,12 @@
   import ListFile from "./listFile.svelte";
   import store from "./lib/store";
   import DisplayFile from "./displayFile.svelte";
-  import TagChip from "./tagListChip.svelte";
+  import TagListChip from "./tagListChip.svelte";
+  import Modal from "./lib/Modal.svelte";
+
+  let tagContainer;
+
+  let showModal = false;
 </script>
 
 <main
@@ -12,14 +17,16 @@
     <button on:click={store.open}>Open DB</button>
     <button on:click={store.importFiles}>Import</button>
     <button on:click={store.getUntaggedFiles}>Show Untagged files</button>
+    <button on:click={() => (showModal = true)}>Show Modal</button>
+    <Modal bind:open={showModal}></Modal>
     <hr />
   </div>
 
-  <div class="overflow-scroll">
-    <p>Tags:</p>
+  <div class="overflow-scroll" bind:this={tagContainer}>
+    <p>Tags: ({$store.tags ? $store.tags.length : 0})</p>
     {#if $store.tags}
       {#each $store.tags as tag}
-        <TagChip {tag}></TagChip>
+        <TagListChip {tag} contextMenuBounds={tagContainer}></TagListChip>
       {/each}
     {:else}
       <p>No tags</p>
@@ -27,7 +34,7 @@
   </div>
 
   <div class="overflow-scroll">
-    <p>Files:</p>
+    <p>Files: ({$store.files ? $store.files.length : 0})</p>
     {#if $store.files}
       <ul>
         {#each $store.files as file}

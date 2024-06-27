@@ -1,83 +1,81 @@
 <script lang="ts">
-    // pos is cursor position when right click occur
-    let pos = { x: 0, y: 0 };
-    // menu is dimension (height and width) of context menu
-    let menu = { h: 0, w: 0 };
-    // browser/window dimension (height and width)
-    let browser = { h: 0, w: 0 };
-    // showMenu is state of context-menu visibility
-    let showMenu = false;
-    // to display some text
-    let content;
-
-    function openMenu(e: MouseEvent) {
-        window.dispatchEvent(new Event("click"));
-
-        browser = {
-            w: window.innerWidth,
-            h: window.innerHeight,
-        };
-        pos = {
-            x: e.clientX,
-            y: e.clientY,
-        };
-        // If bottom part of context menu will be displayed
-        // after right-click, then change the position of the
-        // context menu. This position is controlled by `top` and `left`
-        // at inline style.
-        // Instead of context menu is displayed from top left of cursor position
-        // when right-click occur, it will be displayed from bottom left.
-        if (browser.h - pos.y < menu.h) pos.y = pos.y - menu.h;
-        if (browser.w - pos.x < menu.w) pos.x = pos.x - menu.w;
-        showMenu = true;
-    }
-
-    function onPageClick() {
-        // To make context menu disappear when
-        // mouse is clicked outside context menu
-        showMenu = false;
-    }
-
-    function getContextMenuDimension(node: HTMLElement) {
-        // This function will get context menu dimension
-        // when navigation is shown => showMenu = true
-        let height = node.offsetHeight;
-        let width = node.offsetWidth;
-        menu = {
-            h: height,
-            w: width,
-        };
-    }
-
+    /**
+     * List of items to show on the context menu with an onClick callback
+     */
     export let menuItems: {
         name: String;
         onClick: () => void | Promise<void>;
     }[];
+
+    /**
+     * A parent element used to constrain the position of the context menu
+     * If undefined, the window is used
+     */
+    export let boundingElement: Element | undefined = undefined;
+
+    let pos = { x: 0, y: 0 };
+    let showMenu = false;
+
+    function openMenu(mouse: MouseEvent) {
+        // close any other menus first
+        window.dispatchEvent(new Event("click"));
+
+        pos = {
+            x: mouse.x,
+            y: mouse.y,
+        };
+
+        showMenu = true;
+    }
+
+    function positionContextMenu(node: HTMLElement) {
+        // size of the context menu
+        const height = node.offsetHeight;
+        const width = node.offsetWidth;
+
+        // find the bounds
+        const maxRight =
+            boundingElement?.getBoundingClientRect().right || window.innerWidth;
+        const maxBottom =
+            boundingElement?.getBoundingClientRect().bottom ||
+            window.innerHeight;
+
+        // adjust position if necessary
+        if (pos.x + width > maxRight) pos.x = pos.x - width;
+        if (pos.y + height > maxBottom) pos.y = pos.y - height;
+
+        // set the position
+        node.style.top = pos.y + "px";
+        node.style.left = pos.x + "px";
+    }
 </script>
 
-<svelte:window on:click={onPageClick} />
+<!-- Close the menu when the page is clicked -->
+<svelte:window on:click={() => (showMenu = false)} />
 
-<menu on:contextmenu|preventDefault={openMenu} class="inline">
+<menu on:contextmenu|preventDefault={openMenu} class={$$props.class}>
     <slot></slot>
     {#if showMenu}
         <div
-            use:getContextMenuDimension
-            style="top:{pos.y}px; left:{pos.x}px"
-            class="bg-white absolute border-2 border-black rounded-md p-1"
+            use:positionContextMenu
+            class="bg-white z-10 absolute border-2 border-black rounded-md p-1"
         >
-            <ul>
-                {#each menuItems as item}
-                    {#if item.name == "hr"}
-                        <hr />
-                    {:else}
-                        <li>
-                            <button on:click={item.onClick} class="text-xs"
-                                >{item.name}</button
-                            >
-                        </li>
-                    {/if}
-                {/each}
-            </ul>
+            <slot name="menuItems" />
+            {#if menuItems}
+                <ul>
+                    {#each menuItems as item}
+                        {#if item.name == "hr"}
+                            <hr />
+                        {:else}
+                            <li>
+                                <button on:click={item.onClick} class="text-xs"
+                                    >{item.name}</button
+                                >
+                            </li>
+                        {/if}
+                    {/each}
+                </ul>
+            {/if}
         </div>
     {/if}
 </menu>

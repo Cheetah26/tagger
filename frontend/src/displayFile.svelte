@@ -1,24 +1,21 @@
 <script lang="ts">
+  import TagEditor from "./lib/TagEditor.svelte";
   import store from "./lib/store";
-  import { GetFilepath } from "./lib/wailsjs/go/main/TaggerApp";
   import type { main } from "./lib/wailsjs/go/models";
-  import TagFileChip from "./tagFileChip.svelte";
 
   export let file: main.File | undefined;
 
   // TODO: This might be leaving a trail of unused video players...
   let videoPlayer: HTMLMediaElement = document.createElement("video");
 
-  // let dataBase64: string;
-  // $: if (file) {
-  //   dataBase64 = btoa(String.fromCharCode(...new Uint8Array(file.data)));
-  // }
-
-  let newTag = "";
-  async function addTag() {
+  async function addTag(tag: main.Tag) {
     if (!file) return;
-    await store.tagFile(file, newTag);
-    newTag = "";
+    await store.tagFile(file, tag);
+  }
+
+  async function removeTag(tag: main.Tag) {
+    if (!file) return;
+    await store.untagFile(file, tag);
   }
 
   async function removeFile() {
@@ -95,28 +92,14 @@
 
   <p class="break-all">{file.hash.slice(0, 8)}</p>
 
+  <!-- Tags -->
+  <TagEditor tags={file.tags} onAdd={addTag} onRemove={removeTag}></TagEditor>
+
   <p>Description:</p>
   {#if file.description}
     <p class="break-all">{file.description}</p>
     <p>HI</p>
   {/if}
-
-  <!-- Tags -->
-  <p>Tags:</p>
-  {#if file.tags}
-    {#each file.tags as tag}
-      <TagFileChip {file} {tag} />
-    {/each}
-  {:else}
-    <p>- No tags</p>
-  {/if}
-  <form
-    on:submit|preventDefault={addTag}
-    class="mt-2 flex flex-row align-middle"
-  >
-    <label for="new_tag">Add:</label>
-    <input type="text" id="new_tag" class="w-full h-6" bind:value={newTag} />
-  </form>
 
   <p class="mt-4">
     <button on:click={store.openCurrentFile}>Open</button>

@@ -176,6 +176,11 @@ func (t *Tagger) GetFile(id int) *File {
 			fmt.Println(err)
 		}
 
+		tag.Parents, err = t.GetParentTags(tag)
+		if err != nil {
+			fmt.Println(err)
+		}
+
 		tags = append(tags, tag)
 	}
 
@@ -203,21 +208,43 @@ func (t *Tagger) GetFiles(tags []Tag) []File {
 
 	tag_ids := make([]string, len(tags))
 	for i, v := range tags {
-		tag_ids[i] = strconv.Itoa(v.Id)
+		tag_ids[i] = "(" + strconv.Itoa(v.Id) + ")"
 	}
 
-	// I don't like this but doing it properly didn't work
+	// I don't like doing this instead of a prepared statement,
+	// but it is a lot easier and security isn't really a concern
 	query := fmt.Sprintf(`
-	SELECT Id, Hash, Filetype, Name, Description
-	FROM Files
-	INNER JOIN FileTag
-		ON Id = FileId
-		WHERE TagId IN (%s)
-		GROUP BY Id
-		HAVING COUNT (*) >= %d
-		`,
-		strings.Join(tag_ids, ","),
-		len(tag_ids))
+WITH RECURSIVE
+selection(id) AS (
+	VALUES %s
+),
+-- collect child tags of the selection recursively
+child_tags(id, ancestor) AS (
+    SELECT id, id AS ancestor FROM selection
+    UNION ALL
+    SELECT ChildTagId AS id, ancestor FROM child_tags JOIN TagTag ON id = ParentTagId
+),
+-- files tagged with a child and all other tags, OR the selected tags directly
+file_ids AS (
+	SELECT FileId AS file_id FROM (
+			-- children tags of the selection
+			--   (ancestor + distinct prevents multiple child tags
+			--     of the same parent from increasing the tag count)
+			SELECT DISTINCT FileId, ancestor AS TagId FROM FileTag
+			JOIN child_tags ON id = TagId
+			WHERE ancestor IN selection
+			UNION ALL
+			-- non-children tags
+			SELECT FileId, TagId FROM FileTag
+			WHERE TagId NOT IN (SELECT ancestor FROM child_tags)
+					AND TagId IN selection
+	)
+	GROUP BY FileId
+	HAVING count(TagId) >= (select count(*) FROM selection)
+)
+SELECT Id, Hash, Filetype, Name, Description FROM Files
+JOIN file_ids ON Id = file_id
+ `, strings.Join(tag_ids, ","))
 
 	rows, err := t.db.Query(query)
 

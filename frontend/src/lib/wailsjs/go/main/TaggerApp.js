@@ -26,6 +26,10 @@ export function GetFiles(arg1) {
   return window['go']['main']['TaggerApp']['GetFiles'](arg1);
 }
 
+export function GetParentTags(arg1) {
+  return window['go']['main']['TaggerApp']['GetParentTags'](arg1);
+}
+
 export function GetTag(arg1) {
   return window['go']['main']['TaggerApp']['GetTag'](arg1);
 }
@@ -72,4 +76,8 @@ export function TagFile(arg1, arg2) {
 
 export function UntagFile(arg1, arg2) {
   return window['go']['main']['TaggerApp']['UntagFile'](arg1, arg2);
+}
+
+export function UpdateTag(arg1) {
+  return window['go']['main']['TaggerApp']['UpdateTag'](arg1);
 }

@@ -1,5 +1,5 @@
 import { get, writable } from "svelte/store";
-import { GetAllFiles, GetAllTags, GetFiles, Open, OpenDBDialog, ImportFile, GetFile, RemoveFile, UntagFile, TagFile, GetTag, AddTag, OpenFile, GetUntaggedFiles, RemoveTag, ImportFilesDialog } from "./wailsjs/go/main/TaggerApp";
+import { GetAllFiles, GetAllTags, GetFiles, Open, OpenDBDialog, ImportFile, GetFile, RemoveFile, UntagFile, TagFile, GetTag, AddTag, OpenFile, GetUntaggedFiles, RemoveTag, ImportFilesDialog, UpdateTag } from "./wailsjs/go/main/TaggerApp";
 import { main } from "./wailsjs/go/models";
 import { OnFileDrop } from "./wailsjs/runtime/runtime";
 
@@ -17,7 +17,7 @@ function CreateStore() {
     tags: [],
 
     currentFile: undefined,
-    currentTags: []
+    currentTags: [],
   }
   const store = writable<StoreContents>(emptyStore)
   const { subscribe, set, update } = store
@@ -32,11 +32,22 @@ function CreateStore() {
   }
 
   async function getAllTags() {
-    const tags = await GetAllTags()
-    update(s => ({
-      ...s,
-      tags
-    }))
+    const newTags = await GetAllTags()
+    update(s => {
+      let newCurrentTags = [];
+      for (let ct of s.currentTags) {
+        let nct = newTags.find(t => t.id == ct.id)
+        if (nct) {
+          newCurrentTags.push(nct)
+        }
+      }
+
+      return {
+        ...s,
+        tags: newTags,
+        currentTags: newCurrentTags
+      }
+    })
   }
 
   async function getFiles() {
@@ -102,14 +113,14 @@ function CreateStore() {
     await getFiles()
   }
 
-  async function tagFile(file: main.File, tagName: string) {
-    let tag: main.Tag;
-    try {
-      tag = await GetTag(tagName)
-    } catch {
-      tag = await AddTag(tagName)
-    }
+  async function addTag(name: string): Promise<main.Tag> {
+    const newTag = await AddTag(name)
+    await getAllTags()
 
+    return newTag
+  }
+
+  async function tagFile(file: main.File, tag: main.Tag) {
     await TagFile(file, tag)
     await selectFile(file)
     await getAllTags()
@@ -157,6 +168,18 @@ function CreateStore() {
     }
   }
 
+
+  async function updateTag(tag: main.Tag) {
+    await UpdateTag(tag)
+    await getAllTags()
+
+    // update selected file
+    const state = get(store)
+    if (state.currentFile) {
+      await selectFile(state.currentFile)
+    }
+  }
+
   return {
     subscribe,
     open,
@@ -171,7 +194,9 @@ function CreateStore() {
     openCurrentFile,
     getUntaggedFiles,
     removeTag,
-    importFiles
+    importFiles,
+    updateTag,
+    addTag
   }
 }
 
