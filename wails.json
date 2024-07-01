@@ -2,11 +2,14 @@
   "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "tagger",
   "outputfilename": "tagger",
+  "build:dir": "./internal/app/build",
+  "frontend:dir": "./internal/app/frontend",
+  "wailsjsdir": "./internal/app/frontend/src/lib",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
-  "wailsjsdir": "./frontend/src/lib",
+  "appargs": "--service \"/home/shane/Desktop/test/test.db\"",
   "author": {
     "name": "",
     "email": ""

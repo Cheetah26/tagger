@@ -1,8 +1,8 @@
 <script lang="ts">
   import store from "./lib/store";
-  import { main } from "./lib/wailsjs/go/models";
+  import { tagger } from "./lib/wailsjs/go/models";
 
-  export let file: main.File;
+  export let file: tagger.File;
 
   $: highlight = $store.currentFile?.id == file.id ? "bg-green-300" : "";
 </script>

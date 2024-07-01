@@ -1,14 +1,14 @@
 <script lang="ts">
-  import type { main } from "./wailsjs/go/models";
+  import type { tagger } from "./wailsjs/go/models";
   import TagChip from "./TagChip.svelte";
   import store from "./store";
   import { getTagString } from "./lib";
 
-  export let tags: main.Tag[] | undefined;
-  export let onAdd: (tag: main.Tag) => void;
-  export let onRemove: (tag: main.Tag) => void;
+  export let tags: tagger.Tag[] | undefined;
+  export let onAdd: (tag: tagger.Tag) => void;
+  export let onRemove: (tag: tagger.Tag) => void;
 
-  type Result = { tag: main.Tag; tagString: string };
+  type Result = { tag: tagger.Tag; tagString: string };
 
   let search = "";
   let results: Result[] = [];

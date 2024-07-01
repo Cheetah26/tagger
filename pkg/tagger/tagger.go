@@ -1,4 +1,4 @@
-package main
+package tagger
 
 import (
 	"database/sql"
@@ -32,4 +32,8 @@ func (t *Tagger) Open(path string) {
 	}
 
 	t.db = db
+}
+
+func (t *Tagger) Close() {
+	t.db.Close()
 }

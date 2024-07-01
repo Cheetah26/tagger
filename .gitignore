@@ -1,7 +1,3 @@
-node_modules/
-dist/
 .vscode/
 .DS_Store
 .idea
-build/bin
-frontend/src/lib/wailsjs/

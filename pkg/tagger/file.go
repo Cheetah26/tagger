@@ -1,4 +1,4 @@
-package main
+package tagger
 
 import (
 	"crypto/md5"

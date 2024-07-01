@@ -3,12 +3,12 @@
   import TagEditor from "./lib/TagEditor.svelte";
   import Modal from "./lib/Modal.svelte";
   import store from "./lib/store";
-  import type { main } from "./lib/wailsjs/go/models";
+  import type { tagger } from "./lib/wailsjs/go/models";
   import TagChip from "./lib/TagChip.svelte";
 
   export let contextMenuBounds;
 
-  export let tag: main.Tag;
+  export let tag: tagger.Tag;
 
   let editModalOpen = false;
   let editedTag = tag;
@@ -40,14 +40,14 @@
     },
   ];
 
-  async function addTagTag(tag: main.Tag) {
+  async function addTagTag(tag: tagger.Tag) {
     if (!editedTag.parents) {
       editedTag.parents = [];
     }
     editedTag.parents = [...editedTag.parents, tag];
   }
 
-  async function removeTagTag(tag: main.Tag) {
+  async function removeTagTag(tag: tagger.Tag) {
     console.log(editedTag.parents.filter((t) => t.id != tag.id));
     editedTag.parents = editedTag.parents.filter((t) => t.id != tag.id);
   }

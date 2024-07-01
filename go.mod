@@ -1,8 +1,9 @@
-module tagger
+module github.com/cheetah26/tagger
 
 go 1.20
 
 require (
+	github.com/kardianos/service v1.2.2
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/wailsapp/wails/v2 v2.9.1

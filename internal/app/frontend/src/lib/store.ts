@@ -1,14 +1,14 @@
 import { get, writable } from "svelte/store";
-import { GetAllFiles, GetAllTags, GetFiles, Open, OpenDBDialog, ImportFile, GetFile, RemoveFile, UntagFile, TagFile, GetTag, AddTag, OpenFile, GetUntaggedFiles, RemoveTag, ImportFilesDialog, UpdateTag } from "./wailsjs/go/main/TaggerApp";
-import { main } from "./wailsjs/go/models";
+import { GetAllFiles, GetAllTags, GetFiles, Open, OpenDBDialog, ImportFile, GetFile, RemoveFile, UntagFile, TagFile, GetTag, AddTag, OpenFile, GetUntaggedFiles, RemoveTag, ImportFilesDialog, UpdateTag } from "./wailsjs/go/app/TaggerApp";
+import { tagger } from "./wailsjs/go/models";
 import { OnFileDrop } from "./wailsjs/runtime/runtime";
 
 type StoreContents = {
-  files: main.File[];
-  tags: main.Tag[];
+  files: tagger.File[];
+  tags: tagger.Tag[];
 
-  currentFile?: main.File;
-  currentTags: main.Tag[];
+  currentFile?: tagger.File;
+  currentTags: tagger.Tag[];
 }
 
 function CreateStore() {
@@ -67,7 +67,7 @@ function CreateStore() {
     set(state)
   }
 
-  async function selectFile(file: main.File) {
+  async function selectFile(file: tagger.File) {
     const fullFile = await GetFile(file.id)
     update(s => ({
       ...s,
@@ -87,7 +87,7 @@ function CreateStore() {
     await getFiles()
   }
 
-  async function selectTag(tag: main.Tag) {
+  async function selectTag(tag: tagger.Tag) {
     update(s => {
       s.currentTags.push(tag)
       return s
@@ -96,7 +96,7 @@ function CreateStore() {
     await getFiles()
   }
 
-  async function deselectTag(tag: main.Tag) {
+  async function deselectTag(tag: tagger.Tag) {
     update(s => {
       s.currentTags = s.currentTags.filter(t => t.id != tag.id)
       return s
@@ -104,7 +104,7 @@ function CreateStore() {
     await getFiles()
   }
 
-  async function removeFile(file: main.File) {
+  async function removeFile(file: tagger.File) {
     await RemoveFile(file)
     update(s => {
       s.currentFile = undefined
@@ -113,20 +113,20 @@ function CreateStore() {
     await getFiles()
   }
 
-  async function addTag(name: string): Promise<main.Tag> {
+  async function addTag(name: string): Promise<tagger.Tag> {
     const newTag = await AddTag(name)
     await getAllTags()
 
     return newTag
   }
 
-  async function tagFile(file: main.File, tag: main.Tag) {
+  async function tagFile(file: tagger.File, tag: tagger.Tag) {
     await TagFile(file, tag)
     await selectFile(file)
     await getAllTags()
   }
 
-  async function untagFile(file: main.File, tag: main.Tag) {
+  async function untagFile(file: tagger.File, tag: tagger.Tag) {
     await UntagFile(file, tag)
     await selectFile(file)
   }
@@ -148,7 +148,7 @@ function CreateStore() {
     })
   }
 
-  async function removeTag(tag: main.Tag) {
+  async function removeTag(tag: tagger.Tag) {
     await RemoveTag(tag)
     await getAllTags()
 
@@ -169,7 +169,7 @@ function CreateStore() {
   }
 
 
-  async function updateTag(tag: main.Tag) {
+  async function updateTag(tag: tagger.Tag) {
     await UpdateTag(tag)
     await getAllTags()
 

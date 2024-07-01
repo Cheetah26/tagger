@@ -1,9 +1,9 @@
 <script lang="ts">
   import { getTagString } from "./lib";
   import store from "./store";
-  import type { main } from "./wailsjs/go/models";
+  import type { tagger } from "./wailsjs/go/models";
 
-  export let tag: main.Tag;
+  export let tag: tagger.Tag;
 
   export let clickAction: (() => void) | undefined = undefined;
   export let cancelAction: (() => void) | undefined = undefined;

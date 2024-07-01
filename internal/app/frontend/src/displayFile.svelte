@@ -1,19 +1,19 @@
 <script lang="ts">
   import TagEditor from "./lib/TagEditor.svelte";
   import store from "./lib/store";
-  import type { main } from "./lib/wailsjs/go/models";
+  import type { tagger } from "./lib/wailsjs/go/models";
 
-  export let file: main.File | undefined;
+  export let file: tagger.File | undefined;
 
   // TODO: This might be leaving a trail of unused video players...
   let videoPlayer: HTMLMediaElement = document.createElement("video");
 
-  async function addTag(tag: main.Tag) {
+  async function addTag(tag: tagger.Tag) {
     if (!file) return;
     await store.tagFile(file, tag);
   }
 
-  async function removeTag(tag: main.Tag) {
+  async function removeTag(tag: tagger.Tag) {
     if (!file) return;
     await store.untagFile(file, tag);
   }

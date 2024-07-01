@@ -1,23 +1,19 @@
-# README
+# About
 
-## About
+Store and organize files with a tagging system.
 
-Svelte + Tailwind Template for Wails
-Frontend updated to the latest packages and app versions for modern app development.
+# Building
 
-- @sveltejs/vite-plugin-svelte@2.4.5
-- autoprefixer@10.4.15
-- postcss@8.4.28
-- svelte@4.2.0
-- tailwindcss@3.3.3
-- vite@4.4
+Linux:
+- Execute `wails build`
 
-## Live Development
+Windows:
+- Install [WinFSP](https://winfsp.dev/) w/ "Developer" features selected
+- Install a C compilation toolchain (e.g. MinGW-w64 via [WinLibs](https://winlibs.com/))
+- Add FUSE libary to search path with `go env -w CGO_CFLAGS="-O2 -g -I 'C:\Program Files (x86)\WinFsp\inc\fuse'"`
+- Proceed normally with `wails build`
 
-To run in live development mode, run `wails dev` in the project directory. In another terminal, go into the `frontend`
-directory and run `npm run dev`. The frontend dev server will run on http://localhost:34115. Connect to this in your
-browser and connect to your application.
 
-## Building
+# Development
 
-To build a redistributable, production mode package, use `wails build`.
+Follow the build steps to get your system setup, then execute `wails dev` to start automatic rebuils on file changes.
