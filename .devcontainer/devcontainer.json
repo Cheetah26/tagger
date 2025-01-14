@@ -2,21 +2,30 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/go
 {
 	"name": "Go",
-	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"build": {
 		"dockerfile": "./dockerfile"
 	},
-	// Features to add to the dev container. More info: https://containers.dev/features.
-	// "features": {},
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [],
+	"mounts": [
+		"source=tagger-test,target=/test,type=volume"
+	],
+	// https://containers.dev/features.
+	"features": {
+		"ghcr.io/devcontainers/features/desktop-lite:1": {
+			"password": "noPassword",
+			"webPort": "6080"
+		}
+	},
+	"forwardPorts": [
+		6080
+	],
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// "postCreateCommand": "go version",
 	"remoteUser": "root",
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"svelte.svelte-vscode"
+				"svelte.svelte-vscode",
+				"bradlc.vscode-tailwindcss"
 			]
 		}
 	}

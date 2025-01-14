@@ -70,7 +70,7 @@ func (t *Tagger) GetFilepath(file File) string {
 		level2 = string(idStr[1])
 	}
 
-	return filepath.Join(t.dir, level1, level2, idStr+file.Filetype)
+	return filepath.Join(t.dir, level1, level2, idStr+"."+file.Filetype)
 }
 
 func (t *Tagger) ImportFile(path string) error {
@@ -83,7 +83,7 @@ func (t *Tagger) ImportFile(path string) error {
 
 	file := File{
 		Hash:        hash(data),
-		Filetype:    filepath.Ext(filename),
+		Filetype:    filepath.Ext(filename)[1:],
 		Description: filename,
 	}
 

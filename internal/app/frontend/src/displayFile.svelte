@@ -25,85 +25,66 @@
   }
 
   const imageFormats = [
-    ".apng",
-    ".avif",
-    ".gif",
-    ".jpg",
-    ".jpeg",
-    ".jfif",
-    ".pjpeg",
-    ".pjp",
-    ".png",
-    ".svg",
-    ".webp",
+    "apng",
+    "avif",
+    "gif",
+    "jpg",
+    "jpeg",
+    "jfif",
+    "pjpeg",
+    "pjp",
+    "png",
+    "svg",
+    "webp",
   ];
   const videoFormats = [
     "webm",
-    ".webm",
     "mkv",
     "flv",
-    ".vob",
-    ".ogv",
-    ".ogg",
-    ".drc",
-    ".gifv",
-    ".mng",
-    ".avi",
-    ".mts",
-    ".m2ts",
-    ".TS",
-    ".mov",
-    ".qt",
-    ".wmv",
-    ".yuv",
-    ".rm",
-    ".rmvb",
-    ".viv",
-    ".asf",
-    ".amv",
-    ".mp4",
-    ".m4p",
-    ".m4v",
-    ".svi",
-    ".3gp",
-    ".3g2",
-    ".mxf",
-    ".roq",
-    ".nsv",
-    ".flv",
-    ".f4v",
-    ".f4a",
-    ".f4b",
+    "ogg",
+    "gifv",
+    "avi",
+    "mov",
+    "mp4",
+    "m4p",
+    "flv",
   ];
+  $: if (file && file.filetype) {
+    console.log(file.id);
+    console.log(videoPlayer.canPlayType("video/" + file.filetype));
+  }
 </script>
 
 {#if file === undefined}
   <p>No file selected</p>
 {:else}
-  <!-- Preview file -->
-  {#if imageFormats.includes(file.filetype)}
-    <img src={`/file/${file.id}`} alt={file.hash} />
-  {:else if videoFormats.includes(file.filetype) && videoPlayer.canPlayType(file.filetype) != ""}
-    <video src={`/file/${file.id}`}>
-      <track kind="captions" />
-    </video>
-  {:else}
-    <p class="bg-orange-500">Format {file.filetype} not supported</p>
-  {/if}
+  {#key file.id}
+    <!-- Preview file -->
+    {#if imageFormats.includes(file.filetype)}
+      <img src="/file/{file.id}" alt={file.hash} />
+    {:else if videoFormats.includes(file.filetype)}
+      <!-- svelte-ignore a11y-media-has-caption -->
+      <video controls autoplay>
+        <source src="/file/{file.id}" type="video/{file.filetype}" />
+      </video>
+    {:else}
+      <p class="bg-orange-500">Format {file.filetype} not supported</p>
+    {/if}
 
-  <p class="break-all">{file.hash.slice(0, 8)}</p>
+    <p class="break-all">{file.hash.slice(0, 8)}</p>
 
-  <!-- Tags -->
-  <TagEditor tags={file.tags} onAdd={addTag} onRemove={removeTag}></TagEditor>
+    <!-- Tags -->
+    <TagEditor tags={file.tags} onAdd={addTag} onRemove={removeTag}></TagEditor>
 
-  <p>Description:</p>
-  {#if file.description}
-    <p class="break-all">{file.description}</p>
-    <p>HI</p>
-  {/if}
+    <p>Description:</p>
+    {#if file.description}
+      <p class="break-all">{file.description}</p>
+      <p>HI</p>
+    {/if}
 
-  <p class="mt-4">
-    <button on:click={store.openCurrentFile}>Open</button>
-    <button on:click={removeFile}>Remove</button>
-  </p>
+    <p class="mt-4">
+      <button on:click={store.openCurrentFile}>Open</button>
+      <button on:click={removeFile}>Remove</button>
+    </p>
+  {/key}
 {/if}

@@ -28,7 +28,7 @@
     {/if}
   </div>
 
-  <div class="overflow-y-auto">
+  <div class="overflow-y-scroll">
     <p>Files: ({$store.files ? $store.files.length : 0})</p>
     {#if $store.files}
       <ul>
