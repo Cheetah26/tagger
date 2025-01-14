@@ -1,9 +1,10 @@
+//go:build !cgo && windows
 // +build !cgo,windows
 
 /*
  * fsop_nocgo_windows.go
  *
- * Copyright 2017-2020 Bill Zissimopoulos
+ * Copyright 2017-2022 Bill Zissimopoulos
  */
 /*
  * This file is part of Cgofuse.
@@ -104,8 +105,8 @@ const (
 	O_RDWR    = 0x0002
 	O_APPEND  = 0x0008
 	O_CREAT   = 0x0100
-	O_EXCL    = 0x0200
-	O_TRUNC   = 0x0400
+	O_TRUNC   = 0x0200
+	O_EXCL    = 0x0400
 	O_ACCMODE = O_RDONLY | O_WRONLY | O_RDWR
 )
 
@@ -145,10 +146,32 @@ const (
 	UF_ARCHIVE  = 0x00000800
 )
 
+// Access flags
+const (
+	F_OK      = 0
+	R_OK      = 4
+	W_OK      = 2
+	X_OK      = 1
+	DELETE_OK = 0x40000000 // Delete access check [Windows only]
+)
+
 // Options that control Setxattr operation.
 const (
 	XATTR_CREATE  = 1
 	XATTR_REPLACE = 2
+)
+
+// Flags used in Utimens and Utimens3.
+const (
+	UTIME_NOW  = (1 << 30) - 1
+	UTIME_OMIT = (1 << 30) - 2
+)
+
+// Flags used in FileSystemRename3.Rename3.
+const (
+	RENAME_NOREPLACE = 1 << 0
+	RENAME_EXCHANGE  = 1 << 1
+	RENAME_WHITEOUT  = 1 << 2
 )
 
 // Notify actions.

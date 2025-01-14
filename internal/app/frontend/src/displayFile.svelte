@@ -39,6 +39,7 @@
   ];
   const videoFormats = [
     "webm",
+    ".webm",
     "mkv",
     "flv",
     ".vob",

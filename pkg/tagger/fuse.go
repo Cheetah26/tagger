@@ -24,15 +24,15 @@ func CreateMount(path string, tagger *Tagger) *TaggerFS {
 	}
 
 	host := fuse.NewFileSystemHost(tfs)
-	host.Mount(path, []string{})
+	go host.Mount(path, []string{})
 
 	tfs.h = host
 	return tfs
 }
 
-func (tfs *TaggerFS) Unmount() {
-	tfs.h.Unmount()
-}
+// func (tfs *TaggerFS) Unmount() {
+// 	tfs.h.Unmount()
+// }
 
 func pathToId(path string) int {
 	_, fullname := filepath.Split(path)
@@ -93,7 +93,6 @@ func (tfs *TaggerFS) Readdir(path string, fill func(name string, stat *fuse.Stat
 	// Get parts of the path
 	parts := []string{}
 	if strings.TrimSpace(path) != "/" {
-		fmt.Println(path)
 		parts = strings.Split(path, "/")[1:]
 	}
 

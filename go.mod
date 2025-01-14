@@ -1,13 +1,14 @@
 module github.com/cheetah26/tagger
 
-go 1.20
+go 1.21
+
+toolchain go1.23.4
 
 require (
-	github.com/kardianos/service v1.2.2
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
-	github.com/wailsapp/wails/v2 v2.9.1
-	github.com/winfsp/cgofuse v1.5.0
+	github.com/wailsapp/wails/v2 v2.9.2
+	github.com/winfsp/cgofuse v1.6.0
 )
 
 require (
@@ -31,7 +32,7 @@ require (
 	github.com/tkrajina/go-reflector v0.5.6 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	github.com/wailsapp/go-webview2 v1.0.10 // indirect
+	github.com/wailsapp/go-webview2 v1.0.16 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect

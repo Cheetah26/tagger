@@ -4,13 +4,13 @@ import (
 	"os"
 
 	"github.com/cheetah26/tagger/internal/app"
-	"github.com/cheetah26/tagger/internal/service"
+	"github.com/cheetah26/tagger/internal/cli"
 )
 
 func main() {
 	// start as a service
-	if len(os.Args) > 1 && os.Args[1] == "--service" {
-		service.Run()
+	if len(os.Args) > 1 {
+		cli.Cli()
 		return
 	}
 

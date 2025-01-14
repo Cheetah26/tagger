@@ -9,7 +9,6 @@
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
-  "appargs": "--service \"/home/shane/Desktop/test/test.db\"",
   "author": {
     "name": "",
     "email": ""

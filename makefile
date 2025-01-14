@@ -1,0 +1,1 @@
+windows: CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc CGO_CFLAGS="-I /workspaces/tagger/include/winfsp-2.0/fuse" wails build -platform windows -debug -skipbindings

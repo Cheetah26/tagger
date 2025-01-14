@@ -1,9 +1,10 @@
+//go:build cgo
 // +build cgo
 
 /*
  * fsop_cgo.go
  *
- * Copyright 2017-2020 Bill Zissimopoulos
+ * Copyright 2017-2022 Bill Zissimopoulos
  */
 /*
  * This file is part of Cgofuse.
@@ -287,10 +288,32 @@ const (
 	UF_ARCHIVE  = 0x00000800
 )
 
+// Access flags
+const (
+	F_OK      = 0
+	R_OK      = 4
+	W_OK      = 2
+	X_OK      = 1
+	DELETE_OK = 0x40000000 // Delete access check [Windows only]
+)
+
 // Options that control Setxattr operation.
 const (
 	XATTR_CREATE  = int(C.XATTR_CREATE)
 	XATTR_REPLACE = int(C.XATTR_REPLACE)
+)
+
+// Flags used in Utimens and Utimens3.
+const (
+	UTIME_NOW  = (1 << 30) - 1
+	UTIME_OMIT = (1 << 30) - 2
+)
+
+// Flags used in FileSystemRename3.Rename3.
+const (
+	RENAME_NOREPLACE = 1 << 0
+	RENAME_EXCHANGE  = 1 << 1
+	RENAME_WHITEOUT  = 1 << 2
 )
 
 // Notify actions.

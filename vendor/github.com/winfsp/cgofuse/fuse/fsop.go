@@ -1,7 +1,7 @@
 /*
  * fsop.go
  *
- * Copyright 2017-2020 Bill Zissimopoulos
+ * Copyright 2017-2022 Bill Zissimopoulos
  */
 /*
  * This file is part of Cgofuse.
@@ -11,6 +11,10 @@
  */
 
 // Package fuse allows the creation of user mode file systems in Go.
+//
+// This packages supports both FUSE2 and FUSE3 on Linux and FUSE2 on Windows and macOS.
+// By default, cgofuse will link with FUSE2. To link with FUSE3, simply add '-tags=fuse3'
+// to your 'go build' flags.
 //
 // A user mode file system is a user mode process that receives file system operations
 // from the OS FUSE layer and satisfies them in user mode. A user mode file system
@@ -319,6 +323,13 @@ type FileSystemOpenEx interface {
 	OpenEx(path string, fi *FileInfo_t) int
 }
 
+// FileSystemGetpath is the interface that wraps the Getpath method.
+//
+// Getpath allows a case-insensitive file system to report the correct case of a file path.
+type FileSystemGetpath interface {
+	Getpath(path string, fh uint64) (int, string)
+}
+
 // FileSystemChflags is the interface that wraps the Chflags method.
 //
 // Chflags changes the BSD file flags (Windows file attributes). [OSX and Windows only]
@@ -338,6 +349,38 @@ type FileSystemSetcrtime interface {
 // Setchgtime changes the file change (ctime) time. [OSX and Windows only]
 type FileSystemSetchgtime interface {
 	Setchgtime(path string, tmsp Timespec) int
+}
+
+// FileSystemChmod3 is the interface that wraps the FUSE3 Chmod method.
+//
+// Chmod3 is similar to Chmod except that it includes a file handle that is
+// available only under FUSE3.
+type FileSystemChmod3 interface {
+	Chmod3(path string, mode uint32, fh uint64) int
+}
+
+// FileSystemChown3 is the interface that wraps the FUSE3 Chown method.
+//
+// Chown3 is similar to Chown except that it includes a file handle that is
+// available only under FUSE3.
+type FileSystemChown3 interface {
+	Chown3(path string, uid uint32, gid uint32, fh uint64) int
+}
+
+// FileSystemUtimens3 is the interface that wraps the FUSE3 Utimens method.
+//
+// Utimens3 is similar to Utimens except that it includes a file handle that is
+// available only under FUSE3.
+type FileSystemUtimens3 interface {
+	Utimens3(path string, tmsp []Timespec, fh uint64) int
+}
+
+// FileSystemRename3 is the interface that wraps the FUSE3 Rename method.
+//
+// Rename3 is similar to Rename except that it includes flags that are
+// available only under FUSE3.
+type FileSystemRename3 interface {
+	Rename3(oldpath string, newpath string, flags uint32) int
 }
 
 // Error encapsulates a FUSE error code. In some rare circumstances it is useful

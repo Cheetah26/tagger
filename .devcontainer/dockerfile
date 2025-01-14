@@ -1,0 +1,7 @@
+FROM mcr.microsoft.com/devcontainers/go:1-1.23-bookworm
+
+run go install github.com/wailsapp/wails/v2/cmd/wails@v2.9.2
+
+run apt update && apt install -y nodejs npm libgtk-3-dev libwebkit2gtk-4.0-dev nsis
+
+run apt install -y libfuse-dev libfuse3-dev mingw-w64
