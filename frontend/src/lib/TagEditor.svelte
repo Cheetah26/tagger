@@ -1,14 +1,14 @@
 <script lang="ts">
-  import type { tagger } from "./wailsjs/go/models";
+  import type { Tag } from "../../bindings/github.com/cheetah26/tagger/pkg/tagger";
   import TagChip from "./TagChip.svelte";
   import store from "./store";
   import { getTagString } from "./lib";
 
-  export let tags: tagger.Tag[] | undefined;
-  export let onAdd: (tag: tagger.Tag) => void;
-  export let onRemove: (tag: tagger.Tag) => void;
+  export let tags: Tag[] | undefined;
+  export let onAdd: (tag: Tag) => void;
+  export let onRemove: (tag: Tag) => void;
 
-  type Result = { tag: tagger.Tag; tagString: string };
+  type Result = { tag: Tag; tagString: string };
 
   let search = "";
   let results: Result[] = [];

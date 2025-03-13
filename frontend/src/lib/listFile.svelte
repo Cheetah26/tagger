@@ -1,6 +1,6 @@
 <script lang="ts">
-  import store from "./lib/store";
-  import { File } from "../bindings/github.com/cheetah26/tagger/pkg/tagger";
+  import store from "./store";
+  import { File } from "../../bindings/github.com/cheetah26/tagger/pkg/tagger";
 
   export let file: File;
 

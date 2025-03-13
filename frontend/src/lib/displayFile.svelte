@@ -1,10 +1,10 @@
 <script lang="ts">
-  import TagEditor from "./lib/TagEditor.svelte";
-  import store from "./lib/store";
+  import TagEditor from "./TagEditor.svelte";
+  import store from "./store";
   import type {
     File,
     Tag,
-  } from "../bindings/github.com/cheetah26/tagger/pkg/tagger";
+  } from "../../bindings/github.com/cheetah26/tagger/pkg/tagger";
 
   export let file: File | undefined;
 

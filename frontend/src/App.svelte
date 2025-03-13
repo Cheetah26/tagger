@@ -1,8 +1,8 @@
 <script>
-  import ListFile from "./listFile.svelte";
+  import ListFile from "./lib/listFile.svelte";
   import store from "./lib/store";
-  import DisplayFile from "./displayFile.svelte";
-  import TagListChip from "./tagListChip.svelte";
+  import DisplayFile from "./lib/displayFile.svelte";
+  import TagListChip from "./lib/tagListChip.svelte";
 
   let tagContainer;
 </script>
