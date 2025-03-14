@@ -17,21 +17,24 @@ type Tagger struct {
 	dir string
 }
 
-func (t *Tagger) Open(path string) {
+func Open(path string) (*Tagger, error) {
+	t := &Tagger{}
+
 	dir, _ := filepath.Split(path)
 	t.dir = dir
 
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
+	t.db = db
 
 	_, err = db.Exec(CREATE_SCHEMA)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 
-	t.db = db
+	return t, nil
 }
 
 func (t *Tagger) Close() {
