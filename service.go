@@ -38,7 +38,7 @@ func (a *TaggerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	application.Get().Logger.Debug(r.URL.Path)
 
-	fileId, err := strconv.Atoi(fileIdString)
+	fileId, err := strconv.ParseInt(fileIdString, 10, 64)
 	if err != nil {
 		w.Write([]byte(err.Error()))
 		w.WriteHeader(http.StatusNotFound)

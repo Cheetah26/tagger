@@ -34,10 +34,10 @@ func CreateMount(path string, tagger *Tagger) *TaggerFS {
 // 	tfs.h.Unmount()
 // }
 
-func pathToId(path string) int {
+func pathToId(path string) int64 {
 	_, fullname := filepath.Split(path)
 	idString := strings.TrimSuffix(fullname, filepath.Ext(fullname))
-	id, _ := strconv.Atoi(idString)
+	id, _ := strconv.ParseInt(idString, 10, 64)
 	return id
 }
 
@@ -112,7 +112,7 @@ func (tfs *TaggerFS) Readdir(path string, fill func(name string, stat *fuse.Stat
 		files := tfs.t.GetFiles(tags)
 		num_files = len(files)
 		for _, file := range files {
-			name := strconv.Itoa(file.Id) + file.Filetype
+			name := fmt.Sprintf("%d.%s", file.Id, file.Filetype)
 			file_stat := &fuse.Stat_t{
 				Mode: fuse.S_IFREG | 0444,
 				// Size: int64(len(file.Data)), TODO

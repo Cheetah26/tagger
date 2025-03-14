@@ -14,17 +14,16 @@ import (
 
 type File struct {
 	// File
-	Id          int    `json:"id"`
+	Id          int64  `json:"id"`
 	Hash        string `json:"hash"`
 	Filetype    string `json:"filetype"`
-	Name        string `json:"name"`
 	Description string `json:"description"`
 
 	// FileTags
 	Tags []Tag `json:"tags"`
 }
 
-func hash(data []byte) string {
+func Hash(data []byte) string {
 	hash := md5.Sum(data)
 	return hex.EncodeToString(hash[:])
 }
@@ -44,9 +43,6 @@ func rowsToFiles(rows *sql.Rows) []File {
 			}
 		}
 
-		if name.Valid {
-			file.Name = name.String
-		}
 		if description.Valid {
 			file.Description = description.String
 		}
@@ -58,7 +54,7 @@ func rowsToFiles(rows *sql.Rows) []File {
 }
 
 func (t *Tagger) GetFilepath(file File) string {
-	idStr := strconv.Itoa(file.Id)
+	idStr := fmt.Sprintf("%d", file.Id)
 
 	var level1 string
 	var level2 string
@@ -76,13 +72,13 @@ func (t *Tagger) GetFilepath(file File) string {
 func (t *Tagger) ImportFile(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		panic("Cannot find file")
+		return err
 	}
 
 	_, filename := filepath.Split(path)
 
 	file := File{
-		Hash:        hash(data),
+		Hash:        Hash(data),
 		Filetype:    filepath.Ext(filename)[1:],
 		Description: filename,
 	}
@@ -104,7 +100,7 @@ func (t *Tagger) ImportFile(path string) error {
 		return err
 	}
 
-	file.Id = int(id)
+	file.Id = id
 	newPath := t.GetFilepath(file)
 
 	err = os.MkdirAll(filepath.Dir(newPath), 0777)
@@ -138,7 +134,7 @@ func (t *Tagger) RemoveFile(file File) error {
 	return nil
 }
 
-func (t *Tagger) GetFile(id int) *File {
+func (t *Tagger) GetFile(id int64) *File {
 	// Get the file
 	row := t.db.QueryRow("SELECT Id, Hash, Filetype, Name, Description FROM Files WHERE Id = ?", id)
 
@@ -149,14 +145,11 @@ func (t *Tagger) GetFile(id int) *File {
 	err := row.Scan(&file.Id, &file.Hash, &file.Filetype, &name, &description)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			fmt.Println(err.Error())
+			panic(err) // TODO handle this properly
 		}
 		return nil
 	}
 
-	if name.Valid {
-		file.Name = name.String
-	}
 	if description.Valid {
 		file.Description = description.String
 	}
@@ -266,10 +259,8 @@ func (t *Tagger) GetUntaggedFiles() ([]File, error) {
 		HAVING COUNT(TagId) = 0
 	`)
 
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			return nil, err
-		}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
 	}
 	defer rows.Close()
 
