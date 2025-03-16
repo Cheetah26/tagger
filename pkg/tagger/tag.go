@@ -31,11 +31,17 @@ func (t *Tagger) GetTag(name string) (*Tag, error) {
 
 	var tag Tag
 	if err := row.Scan(&tag.Id, &tag.Name); err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			fmt.Println(err.Error())
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
 		}
 		return nil, err
 	}
+
+	parents, err := t.GetParentTags(tag)
+	if err != nil {
+		return nil, err
+	}
+	tag.Parents = parents
 
 	return &tag, nil
 }
@@ -70,7 +76,7 @@ func (t *Tagger) GetAllTags() []Tag {
 	return tags
 }
 
-// TODO do this with a recursive CTE in the database, not like this
+// Recursively get a tag's parents
 func (t *Tagger) GetParentTags(tag Tag) ([]Tag, error) {
 	var tags []Tag
 
@@ -100,6 +106,7 @@ func (t *Tagger) GetParentTags(tag Tag) ([]Tag, error) {
 	return tags, nil
 }
 
+// Get the immediate children of a tag
 func (t *Tagger) GetChildTags(tag Tag) ([]Tag, error) {
 	var tags []Tag
 
