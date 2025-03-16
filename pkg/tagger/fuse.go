@@ -131,7 +131,13 @@ func (tfs *TaggerFS) Readdir(path string, fill func(name string, stat *fuse.Stat
 			}
 			return false
 		}
-		for _, tag := range tfs.t.GetAllTags() {
+
+		tags, err := tfs.t.GetAllTags()
+		if err != nil {
+			fmt.Println(err)
+			return fuse.EFAULT
+		}
+		for _, tag := range tags {
 			if !alreadyInPath(tag.Name) {
 				fill(tag.Name, dir_stat, 0)
 			}

@@ -1,6 +1,7 @@
 package tagger_test
 
 import (
+	"errors"
 	"strconv"
 	"testing"
 
@@ -31,20 +32,36 @@ func TestInsertAndRemove(t *testing.T) {
 		return "tag" + strconv.Itoa(num)
 	}
 
+	allTags, err := tr.GetAllTags()
+	if err != nil {
+		t.Error("Unable to get all tags")
+	}
+	if len(allTags) != 0 {
+		t.Error("Initial state: Incorrect number of tags in database")
+	}
+
 	// add tags
 	for i := range COUNT {
 		name := getTagName(i)
 
-		tag := tr.AddTag(name)
-		if tag.Name != name {
-			t.Error("Insert fail: Inserted tag has incorrect name")
-		}
-		if len(tag.Parents) != 0 {
-			t.Error("Insert fail: Inserted tag has parents")
-		}
+		tag, err := tr.AddTag(name)
+		if tag == nil || err != nil {
+			t.Error("Insert fail: Error while inserting tag")
+		} else {
+			if tag.Name != name {
+				t.Error("Insert fail: Inserted tag has incorrect name")
+			}
+			if len(tag.Parents) != 0 {
+				t.Error("Insert fail: Inserted tag has parents")
+			}
 
-		if len(tr.GetAllTags()) != i+1 {
-			t.Error("Insert fail: Incorrect number of tags in database")
+			allTags, err := tr.GetAllTags()
+			if err != nil {
+				t.Error("Unable to get all tags")
+			}
+			if len(allTags) != i+1 {
+				t.Error("Insert fail: Incorrect number of tags in database")
+			}
 		}
 	}
 
@@ -68,11 +85,19 @@ func TestInsertAndRemove(t *testing.T) {
 		if err != nil {
 			t.Error("Remove fail: Error removing tag")
 		}
-		if got, err := tr.GetTag(name); got != nil || err != nil {
+		got, err := tr.GetTag(name)
+		if got != nil {
 			t.Error("Remove fail: Still able to retrieve tag")
 		}
+		if !errors.Is(err, tagger.ErrTagNotExist) {
+			t.Error("Remove fail: No error returned")
+		}
 
-		if len(tr.GetAllTags()) != COUNT-i-1 {
+		allTags, err := tr.GetAllTags()
+		if err != nil {
+			t.Error("Unable to get all tags")
+		}
+		if len(allTags) != COUNT-i-1 {
 			t.Error("Remove fail: Incorrect number of tags in database")
 		}
 	}
@@ -81,10 +106,13 @@ func TestInsertAndRemove(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	tr := openTestDB(t.TempDir())
 
-	tag := tr.AddTag("initial")
+	tag, _ := tr.AddTag("initial")
 
 	tag.Name = "updated"
-	tr.UpdateTag(*tag)
+	err := tr.UpdateTag(*tag)
+	if err != nil {
+		t.Error("Update fail: Error while updating tag")
+	}
 
 	if got, err := tr.GetTag("child"); got != nil && err == nil {
 		t.Error("Update fail: Name not changed")
@@ -99,9 +127,9 @@ func TestParents(t *testing.T) {
 	// setup
 	tr := openTestDB(t.TempDir())
 
-	parent := tr.AddTag("parent")
-	child := tr.AddTag("child")
-	grandchild := tr.AddTag("grandchild")
+	parent, _ := tr.AddTag("parent")
+	child, _ := tr.AddTag("child")
+	grandchild, _ := tr.AddTag("grandchild")
 
 	// add parents
 	child.Parents = append(child.Parents, *parent)
@@ -142,9 +170,58 @@ func TestParents(t *testing.T) {
 	}
 }
 
+func TestNonexistent(t *testing.T) {
+	tr := openTestDB(t.TempDir())
+
+	tag, err := tr.GetTag("fake")
+	if tag != nil {
+		t.Error("Get: Results returned for nonexistent tag")
+	}
+	if !errors.Is(err, tagger.ErrTagNotExist) {
+		t.Error("Get: No error returned on nonexistent tag")
+	}
+
+	allTags, err := tr.GetAllTags()
+	if allTags != nil {
+		t.Error("Get all: Results returned when no tags in database")
+	}
+	if err != nil {
+		t.Error("Get all: Error when no tags in database")
+	}
+
+	fake := tagger.Tag{
+		Id:      22,
+		Name:    "fake tag",
+		Parents: []tagger.Tag{},
+	}
+
+	err = tr.UpdateTag(fake)
+	if !errors.Is(err, tagger.ErrTagNotExist) {
+		t.Error("Update: No error returned when updating nonexistent tag")
+	}
+
+	err = tr.RemoveTag(fake)
+	if !errors.Is(err, tagger.ErrTagNotExist) {
+		t.Error("Remove: No error returned when removing nonexistent tag")
+	}
+
+	tags, err := tr.GetChildTags(fake)
+	if err != nil {
+		t.Error("Get children: Error returned")
+	}
+	if tags != nil {
+		t.Error("Get children: Value returned while children of nonexistent tag")
+	}
+
+	tags, err = tr.GetParentTags(fake)
+	if err != nil {
+		t.Error("Get parents: Error returned")
+	}
+	if tags != nil {
+		t.Error("Get parents: Value returned while parents of nonexistent tag")
+	}
+}
+
 // TODO tests that should fail:
 // don't allow child to become parent of its parent (infinite recursion)
-// get non-existant tag
-// update non-existant tag
-// remove non-existant tag
 // update with bad values
