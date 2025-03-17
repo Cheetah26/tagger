@@ -23,5 +23,23 @@ func NewDatabaseError(orig error) error {
 }
 
 func (e *DatabaseError) Error() string {
-	return fmt.Sprintf("Database Error: %v", e.Err)
+	return fmt.Sprintf("Database error: %v", e.Err)
+}
+
+type FilesystemError struct {
+	Err error
+}
+
+func NewFilesystemError(orig error) error {
+	if orig == nil {
+		return nil
+	}
+
+	return &FilesystemError{
+		Err: orig,
+	}
+}
+
+func (e *FilesystemError) Error() string {
+	return fmt.Sprintf("Filesystem error: %v", e.Err)
 }

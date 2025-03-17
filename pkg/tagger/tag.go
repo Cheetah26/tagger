@@ -6,10 +6,12 @@ import (
 )
 
 type Tag struct {
-	Id      int    `json:"id"`
-	Name    string `json:"name"`
-	Parents []Tag  `json:"parents"`
+	Id      int64   `json:"id"`
+	Name    string  `json:"name"`
+	Parents []int64 `json:"parents"`
 }
+
+type TagMap map[int64]Tag
 
 func (t *Tagger) AddTag(tagName string) (*Tag, error) {
 	res, err := t.db.Exec("INSERT INTO Tags(name) VALUES(?)", tagName)
@@ -23,12 +25,33 @@ func (t *Tagger) AddTag(tagName string) (*Tag, error) {
 	}
 
 	return &Tag{
-		Id:   int(id),
+		Id:   id,
 		Name: tagName,
 	}, nil
 }
 
-func (t *Tagger) GetTag(name string) (*Tag, error) {
+func (t *Tagger) GetTagById(id int64) (*Tag, error) {
+	var tag Tag
+
+	row := t.db.QueryRow("SELECT * FROM Tags WHERE Id = ?", id)
+
+	if err := row.Scan(&tag.Id, &tag.Name); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrTagNotExist
+		}
+		return nil, NewDatabaseError(err)
+	}
+
+	parents, err := t.getParentTagIds(&tag)
+	if err != nil {
+		return nil, err
+	}
+	tag.Parents = parents
+
+	return &tag, nil
+}
+
+func (t *Tagger) GetTagByName(name string) (*Tag, error) {
 	var tag Tag
 
 	row := t.db.QueryRow("SELECT * FROM Tags WHERE Name = ?", name)
@@ -40,7 +63,7 @@ func (t *Tagger) GetTag(name string) (*Tag, error) {
 		return nil, NewDatabaseError(err)
 	}
 
-	parents, err := t.GetParentTags(tag)
+	parents, err := t.getParentTagIds(&tag)
 	if err != nil {
 		return nil, err
 	}
@@ -49,8 +72,8 @@ func (t *Tagger) GetTag(name string) (*Tag, error) {
 	return &tag, nil
 }
 
-func (t *Tagger) GetAllTags() ([]Tag, error) {
-	var tags []Tag
+func (t *Tagger) GetAllTags() (TagMap, error) {
+	tags := make(TagMap)
 
 	rows, err := t.db.Query("SELECT * FROM Tags")
 	if err != nil {
@@ -64,73 +87,39 @@ func (t *Tagger) GetAllTags() ([]Tag, error) {
 			return nil, NewDatabaseError(err)
 		}
 
-		parents, err := t.GetParentTags(tag)
+		parents, err := t.getParentTagIds(&tag)
 		if err != nil {
 			return nil, err
 		}
-
 		tag.Parents = parents
 
-		tags = append(tags, tag)
+		tags[tag.Id] = tag
 	}
 
 	return tags, nil
 }
 
-// Recursively get a tag's parents
-func (t *Tagger) GetParentTags(tag Tag) ([]Tag, error) {
-	var tags []Tag
+func (t *Tagger) getParentTagIds(tag *Tag) ([]int64, error) {
+	var parents []int64
 
-	rows, err := t.db.Query(
-		"SELECT Id, Name FROM Tags INNER JOIN TagTag ON Id = ParentTagId WHERE ChildTagId = ?", tag.Id)
+	rows, err := t.db.Query("SELECT ParentTagId FROM TagTag WHERE ChildTagId = ?", tag.Id)
 	if err != nil {
 		return nil, NewDatabaseError(err)
 	}
-	defer rows.Close()
-
 	for rows.Next() {
-		var tag Tag
-		if err := rows.Scan(&tag.Id, &tag.Name); err != nil {
+		var parent int64
+		err = rows.Scan(&parent)
+		if err != nil {
 			return nil, NewDatabaseError(err)
 		}
 
-		// TODO should this be recursive or not?
-		tag.Parents, err = t.GetParentTags(tag)
-		if err != nil {
-			return nil, err
-		}
-
-		tags = append(tags, tag)
+		parents = append(parents, parent)
 	}
 
-	return tags, nil
+	return parents, nil
 }
 
-// Get the immediate children of a tag
-func (t *Tagger) GetChildTags(tag Tag) ([]Tag, error) {
-	var tags []Tag
-
-	rows, err := t.db.Query(
-		"SELECT Id, Name FROM Tags INNER JOIN (SELECT * FROM TagTag) ON Id == ChildTagId WHERE ParentTagId == ?", tag.Id)
-	if err != nil {
-		return nil, NewDatabaseError(err)
-	}
-
-	defer rows.Close()
-
-	for rows.Next() {
-		var tag Tag
-		if err := rows.Scan(&tag.Id, &tag.Name); err != nil {
-			return nil, err
-		}
-
-		tags = append(tags, tag)
-	}
-
-	return tags, nil
-}
-
-func (t *Tagger) RemoveTag(tag Tag) error {
+func (t *Tagger) RemoveTag(tag *Tag) error {
 	res, err := t.db.Exec("DELETE FROM Tags WHERE Id = ?", tag.Id)
 
 	affected, _ := res.RowsAffected()
@@ -141,7 +130,7 @@ func (t *Tagger) RemoveTag(tag Tag) error {
 	return err
 }
 
-func (t *Tagger) UpdateTag(tag Tag) error {
+func (t *Tagger) UpdateTag(tag *Tag) error {
 	var allErrors []error
 
 	tx, err := t.db.Begin()
@@ -161,7 +150,7 @@ func (t *Tagger) UpdateTag(tag Tag) error {
 	allErrors = append(allErrors, NewDatabaseError(err))
 
 	for _, parent := range tag.Parents {
-		_, err = tx.Exec("INSERT INTO TagTag(ParentTagId, ChildTagId) VALUES(?, ?)", parent.Id, tag.Id)
+		_, err = tx.Exec("INSERT INTO TagTag(ParentTagId, ChildTagId) VALUES(?, ?)", parent, tag.Id)
 		allErrors = append(allErrors, NewDatabaseError(err))
 	}
 

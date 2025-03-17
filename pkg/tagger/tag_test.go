@@ -8,13 +8,23 @@ import (
 	"github.com/cheetah26/tagger/pkg/tagger"
 )
 
-func compareTagParents(a, b *tagger.Tag) bool {
+func compareTagParents(tr *tagger.Tagger, a, b *tagger.Tag) bool {
 	if len(a.Parents) != len(b.Parents) {
 		return false
 	}
 
 	for i := range len(a.Parents) {
-		if a.Id != b.Id || !compareTagParents(&a.Parents[i], &b.Parents[i]) {
+		parentA, err := tr.GetTagById(a.Parents[i])
+		if err != nil {
+			return false
+		}
+
+		parentB, err := tr.GetTagById(b.Parents[i])
+		if err != nil {
+			return false
+		}
+
+		if parentA.Id != parentB.Id || !compareTagParents(tr, parentA, parentB) {
 			return false
 		}
 	}
@@ -69,23 +79,20 @@ func TestInsertAndRemove(t *testing.T) {
 	for i := range COUNT {
 		name := getTagName(i)
 
-		tag, err := tr.GetTag(name)
+		tag, err := tr.GetTagByName(name)
 		if tag == nil || err != nil {
-			t.Error("Get fail: Error getting tag")
+			t.Error("Get fail: Error getting tag by name")
 			continue
-		}
-		if tag.Name != name {
-			t.Error("Get fail: Retrieved tag has incorrect name")
 		}
 		if len(tag.Parents) != 0 {
 			t.Error("Get fail: Retrieved tag has parents")
 		}
 
-		err = tr.RemoveTag(*tag)
+		err = tr.RemoveTag(tag)
 		if err != nil {
 			t.Error("Remove fail: Error removing tag")
 		}
-		got, err := tr.GetTag(name)
+		got, err := tr.GetTagByName(name)
 		if got != nil {
 			t.Error("Remove fail: Still able to retrieve tag")
 		}
@@ -109,17 +116,21 @@ func TestUpdate(t *testing.T) {
 	tag, _ := tr.AddTag("initial")
 
 	tag.Name = "updated"
-	err := tr.UpdateTag(*tag)
+	err := tr.UpdateTag(tag)
 	if err != nil {
 		t.Error("Update fail: Error while updating tag")
 	}
 
-	if got, err := tr.GetTag("child"); got != nil && err == nil {
+	if got, err := tr.GetTagByName("initial"); got != nil && err == nil {
 		t.Error("Update fail: Name not changed")
 	}
 
-	if got, err := tr.GetTag("updated"); got == nil || err != nil {
+	if got, err := tr.GetTagByName("updated"); got == nil || err != nil {
 		t.Error("Update fail: Unable to retrieve by new name")
+	}
+
+	if got, err := tr.GetTagById(tag.Id); got == nil || err != nil {
+		t.Error("Update fail: Unable to retrieve by id")
 	}
 }
 
@@ -132,48 +143,51 @@ func TestParents(t *testing.T) {
 	grandchild, _ := tr.AddTag("grandchild")
 
 	// add parents
-	child.Parents = append(child.Parents, *parent)
-	tr.UpdateTag(*child)
-	grandchild.Parents = append(grandchild.Parents, *child)
-	tr.UpdateTag(*grandchild)
+	child.Parents = append(child.Parents, parent.Id)
+	tr.UpdateTag(child)
+	grandchild.Parents = append(grandchild.Parents, child.Id)
+	tr.UpdateTag(grandchild)
 
-	updated, err := tr.GetTag("grandchild")
+	updated, err := tr.GetTagById(child.Id)
 	if err != nil {
-		t.Error("Add parent fail: Unable to get grandchild")
+		t.Error("Add parent: Unable to get child")
 	}
-	if !compareTagParents(updated, grandchild) {
-		t.Error("Add parent fail: Parent tag tree is incorrect")
+	if !compareTagParents(tr, updated, child) {
+		t.Error("Add parent: Child's parent tags are incorrect")
 	}
-
-	// get child from parent
-	got, err := tr.GetChildTags(*parent)
-	if got == nil || err != nil {
-		t.Error("Get child failed: Error retrieving child tag")
+	updated, err = tr.GetTagById(grandchild.Id)
+	if err != nil {
+		t.Error("Add parent: Unable to get grandchild")
 	}
-	if len(got) != 1 {
-		t.Error("Get child failed: Incorrect number of results")
-	}
-	if got[0].Id != child.Id {
-		t.Error("Get child failed: Retrieved tag is incorrect")
+	if !compareTagParents(tr, updated, grandchild) {
+		t.Error("Add parent: Grandchild's parents are incorrect")
 	}
 
 	// remove parent from child
-	child.Parents = []tagger.Tag{}
-	tr.UpdateTag(*child)
+	child.Parents = []int64{}
+	tr.UpdateTag(child)
 
-	updated, err = tr.GetTag("child")
+	updated, err = tr.GetTagById(child.Id)
 	if err != nil {
-		t.Error("Remove parent fail: Unable to get child")
+		t.Error("Remove parent: Unable to get child")
 	}
-	if !compareTagParents(updated, child) {
-		t.Error("Remove parent fail: Parent tag not removed")
+	if !compareTagParents(tr, updated, child) {
+		t.Error("Remove parent: Child's parent tags are incorrect")
 	}
 }
 
 func TestNonexistent(t *testing.T) {
 	tr := openTestDB(t.TempDir())
 
-	tag, err := tr.GetTag("fake")
+	tag, err := tr.GetTagById(35)
+	if tag != nil {
+		t.Error("Get: Results returned for nonexistent tag")
+	}
+	if !errors.Is(err, tagger.ErrTagNotExist) {
+		t.Error("Get: No error returned on nonexistent tag")
+	}
+
+	tag, err = tr.GetTagByName("fake")
 	if tag != nil {
 		t.Error("Get: Results returned for nonexistent tag")
 	}
@@ -182,17 +196,17 @@ func TestNonexistent(t *testing.T) {
 	}
 
 	allTags, err := tr.GetAllTags()
-	if allTags != nil {
+	if len(allTags) != 0 {
 		t.Error("Get all: Results returned when no tags in database")
 	}
 	if err != nil {
 		t.Error("Get all: Error when no tags in database")
 	}
 
-	fake := tagger.Tag{
+	fake := &tagger.Tag{
 		Id:      22,
 		Name:    "fake tag",
-		Parents: []tagger.Tag{},
+		Parents: []int64{},
 	}
 
 	err = tr.UpdateTag(fake)
@@ -203,22 +217,6 @@ func TestNonexistent(t *testing.T) {
 	err = tr.RemoveTag(fake)
 	if !errors.Is(err, tagger.ErrTagNotExist) {
 		t.Error("Remove: No error returned when removing nonexistent tag")
-	}
-
-	tags, err := tr.GetChildTags(fake)
-	if err != nil {
-		t.Error("Get children: Error returned")
-	}
-	if tags != nil {
-		t.Error("Get children: Value returned while children of nonexistent tag")
-	}
-
-	tags, err = tr.GetParentTags(fake)
-	if err != nil {
-		t.Error("Get parents: Error returned")
-	}
-	if tags != nil {
-		t.Error("Get parents: Value returned while parents of nonexistent tag")
 	}
 }
 

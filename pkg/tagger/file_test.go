@@ -66,39 +66,50 @@ func TestInsertAndRemoveFiles(t *testing.T) {
 		}
 
 		// check that each is imported as expected
-		if len(tr.GetAllFiles()) != i+1 {
+		allFiles, err := tr.GetAllFiles()
+		if err != nil {
+			t.Error("Import: Unable to get all files")
+		}
+		if len(allFiles) != i+1 {
 			t.Error("Import: File added to database")
 		}
 
-		actual := tr.GetFile(file.Id)
+		actual, err := tr.GetFile(file.Id)
+		if err != nil {
+			t.Error("Import: Unable to get file after insert")
+		}
 
 		if !compareFiles(expected, actual) {
 			t.Errorf("Import: Mismatch in database\n\tExpected: %+v\n\tGot: %+v", expected, actual)
 		}
 
-		info, err := os.Stat(tr.GetFilepath(*actual))
+		info, err := os.Stat(tr.GetFilepath(actual))
 		if err != nil || info.Size() <= 0 {
 			t.Error("Import: File not written")
 		}
 	}
 
 	// remove each file
-	allFiles := tr.GetAllFiles()
+	allFiles, err := tr.GetAllFiles()
+	if err != nil {
+		t.Error("Import: Unable to get all files")
+	}
+
 	for i := range COUNT {
-		err := tr.RemoveFile(allFiles[i])
+		err := tr.RemoveFile(&allFiles[i])
 		if err != nil {
 			t.Error(err)
 		}
 
-		if len(tr.GetAllFiles()) != COUNT-i-1 {
-			t.Fatal("Remove: Inconsistent number of files in database")
+		newAllFiles, err := tr.GetAllFiles()
+		if err != nil {
+			t.Error("Import: Unable to get all files")
+		}
+		if len(newAllFiles) != COUNT-i-1 {
+			t.Error("Remove: Inconsistent number of files in database")
 		}
 
-		if tr.GetFile(allFiles[i].Id) != nil {
-			t.Fatal("Remove: Still in database")
-		}
-
-		_, err = os.Stat(tr.GetFilepath(allFiles[i]))
+		_, err = os.Stat(tr.GetFilepath(&allFiles[i]))
 		if !errors.Is(err, os.ErrNotExist) {
 			t.Error("Remove: Still on disk")
 		}
@@ -137,30 +148,49 @@ func TestTagFile(t *testing.T) {
 
 	checkUntaggedFiles("Setup", 1)
 
+	got, err := tr.GetFilesByTag([]tagger.Tag{})
+	if err != nil {
+		t.Error("Get empty tag selection: Error getting files")
+	}
+	if len(got) != 0 {
+		t.Error("Get empty tag selection: Incorrect number of files returned")
+	}
+
 	// tag file
-	err = tr.TagFile(*catFile, *animalTag)
+	err = tr.TagFile(catFile, animalTag)
 	if err != nil {
 		t.Error("Tag file: Error tagging file")
 	}
 
 	checkUntaggedFiles("Tag file", 0)
 
-	got := tr.GetFiles([]tagger.Tag{*animalTag})
+	got, err = tr.GetFilesByTag([]tagger.Tag{*animalTag})
+	if err != nil {
+		t.Error("Get tagged file: Error getting file by tag")
+	}
 	if len(got) != 1 {
 		t.Error("Get tagged file: Incorrect number of files returned")
-	}
-	if !compareFiles(&got[0], catFile) {
+	} else if !compareFiles(&got[0], catFile) {
 		t.Error("Get tagged file: File not in results")
 	}
 
-	got = tr.GetFiles([]tagger.Tag{*plantTag})
+	got, err = tr.GetFilesByTag([]tagger.Tag{*plantTag})
+	if err != nil {
+		t.Error("Get tagged file: Error getting file by tag")
+	}
 	if len(got) != 0 {
 		t.Error("Get tagged file: Incorrect number of files returned")
 	}
 
 	// untag file
-	tr.UntagFile(*catFile, *animalTag)
-	got = tr.GetFiles([]tagger.Tag{*animalTag})
+	err = tr.UntagFile(catFile, animalTag)
+	if err != nil {
+		t.Error("Untag file: Error untagging")
+	}
+	got, err = tr.GetFilesByTag([]tagger.Tag{*animalTag})
+	if err != nil {
+		t.Error("Get tagged file: Error getting file by tag")
+	}
 	if len(got) != 0 {
 		t.Error("Get tagged file: Incorrect number of files returned")
 	}
@@ -184,18 +214,16 @@ func TestComplexTagSearch(t *testing.T) {
 
 	a1, err := tr.AddTag("A1")
 	errs = append(errs, err)
-	a1.Parents = []tagger.Tag{*a}
-	errs = append(errs, tr.UpdateTag(*a1))
+	a1.Parents = []int64{a.Id}
+	errs = append(errs, tr.UpdateTag(a1))
 
 	a2, err := tr.AddTag("A2")
 	errs = append(errs, err)
-	a2.Parents = []tagger.Tag{*a}
-	errs = append(errs, tr.UpdateTag(*a2))
+	a2.Parents = []int64{a.Id}
+	errs = append(errs, tr.UpdateTag(a2))
 
 	b, err := tr.AddTag("B")
 	errs = append(errs, err)
-
-	a2.Parents = []tagger.Tag{*a}
 
 	importDir := t.TempDir()
 	filePath, _ := createTestFile(importDir, "f1")
@@ -206,10 +234,10 @@ func TestComplexTagSearch(t *testing.T) {
 	f2, err := tr.ImportFile(filePath)
 	errs = append(errs, err)
 
-	errs = append(errs, tr.TagFile(*f1, *a1))
-	errs = append(errs, tr.TagFile(*f1, *b))
+	errs = append(errs, tr.TagFile(f1, a1))
+	errs = append(errs, tr.TagFile(f1, b))
 
-	errs = append(errs, tr.TagFile(*f2, *a2))
+	errs = append(errs, tr.TagFile(f2, a2))
 
 	if errors.Join(errs...) != nil {
 		t.Fatal("Setup: Error creating tags or files")
@@ -230,52 +258,82 @@ func TestComplexTagSearch(t *testing.T) {
 	}
 
 	// test
-	actual := tr.GetFiles([]tagger.Tag{*a})
+	actual, err := tr.GetFilesByTag([]tagger.Tag{*a})
+	if err != nil {
+		t.Error("Get: Error getting file by tag")
+	}
 	if !matches(actual, []tagger.File{*f1, *f2}) {
 		t.Error("Get: Incorrect results")
 	}
 
-	actual = tr.GetFiles([]tagger.Tag{*b})
+	actual, err = tr.GetFilesByTag([]tagger.Tag{*b})
+	if err != nil {
+		t.Error("Get: Error getting file by tag")
+	}
 	if !matches(actual, []tagger.File{*f1}) {
 		t.Error("Get: Incorrect results")
 	}
 
-	actual = tr.GetFiles([]tagger.Tag{*a, *b})
+	actual, err = tr.GetFilesByTag([]tagger.Tag{*a, *b})
+	if err != nil {
+		t.Error("Get: Error getting file by tag")
+	}
 	if !matches(actual, []tagger.File{*f1}) {
 		t.Error("Get: Incorrect results")
 	}
 
-	actual = tr.GetFiles([]tagger.Tag{*a1})
+	actual, err = tr.GetFilesByTag([]tagger.Tag{*a1})
+	if err != nil {
+		t.Error("Get: Error getting file by tag")
+	}
 	if !matches(actual, []tagger.File{*f1}) {
 		t.Error("Get: Incorrect results")
 	}
 
-	actual = tr.GetFiles([]tagger.Tag{*a2})
+	actual, err = tr.GetFilesByTag([]tagger.Tag{*a2})
+	if err != nil {
+		t.Error("Get: Error getting file by tag")
+	}
 	if !matches(actual, []tagger.File{*f2}) {
 		t.Error("Get: Incorrect results")
 	}
 
-	actual = tr.GetFiles([]tagger.Tag{*a, *a1})
+	actual, err = tr.GetFilesByTag([]tagger.Tag{*a, *a1})
+	if err != nil {
+		t.Error("Get: Error getting file by tag")
+	}
 	if !matches(actual, []tagger.File{*f1}) {
 		t.Error("Get: Incorrect results")
 	}
 
-	actual = tr.GetFiles([]tagger.Tag{*a, *a2})
+	actual, err = tr.GetFilesByTag([]tagger.Tag{*a, *a2})
+	if err != nil {
+		t.Error("Get: Error getting file by tag")
+	}
 	if !matches(actual, []tagger.File{*f2}) {
 		t.Error("Get: Incorrect results")
 	}
 
-	actual = tr.GetFiles([]tagger.Tag{*a1, *b})
+	actual, err = tr.GetFilesByTag([]tagger.Tag{*a1, *b})
+	if err != nil {
+		t.Error("Get: Error getting file by tag")
+	}
 	if !matches(actual, []tagger.File{*f1}) {
 		t.Error("Get: Incorrect results")
 	}
 
-	actual = tr.GetFiles([]tagger.Tag{*a2, *b})
+	actual, err = tr.GetFilesByTag([]tagger.Tag{*a2, *b})
+	if err != nil {
+		t.Error("Get: Error getting file by tag")
+	}
 	if !matches(actual, []tagger.File{}) {
 		t.Error("Get: Incorrect results")
 	}
 
-	actual = tr.GetFiles([]tagger.Tag{*a1, *a2})
+	actual, err = tr.GetFilesByTag([]tagger.Tag{*a1, *a2})
+	if err != nil {
+		t.Error("Get: Error getting file by tag")
+	}
 	if !matches(actual, []tagger.File{}) {
 		t.Error("Get: Incorrect results")
 	}
@@ -302,8 +360,17 @@ func TestNonexistentFile(t *testing.T) {
 		t.Error("Insert: Expected filesystem error ErrNotExist")
 	}
 
+	// try get
+	got, err := tr.GetFile(fakeFile.Id)
+	if !errors.Is(err, tagger.ErrFileNotExist) {
+		t.Error("Get: No error when attempting to retrieve after failed insert")
+	}
+	if got != nil {
+		t.Error("Get: Got nonexistent file")
+	}
+
 	// try remove
-	err = tr.RemoveFile(fakeFile)
+	err = tr.RemoveFile(&fakeFile)
 	if err == nil {
 		t.Error("Remove: No error when removing nonexistent file")
 	}
@@ -314,7 +381,7 @@ func TestNonexistentFile(t *testing.T) {
 		t.Fatal("Tag: Unable to create tag")
 	}
 
-	err = tr.TagFile(fakeFile, *tag)
+	err = tr.TagFile(&fakeFile, tag)
 	if err == nil {
 		t.Error("Tag: No error when tagging nonexistent file")
 	}
@@ -331,7 +398,7 @@ func TestDeletedFile(t *testing.T) {
 		t.Fatal("Setup: Error creating test file")
 	}
 
-	taggerPath := tr.GetFilepath(*file)
+	taggerPath := tr.GetFilepath(file)
 
 	// delete it outside of Tagger
 	err = os.Remove(taggerPath)
@@ -340,7 +407,7 @@ func TestDeletedFile(t *testing.T) {
 	}
 
 	// remove in Tagger
-	err = tr.RemoveFile(*file)
+	err = tr.RemoveFile(file)
 	if err != nil {
 		t.Error("Remove: Error removing file already deleted on disk")
 	}

@@ -48,7 +48,10 @@ func (t *TaggerFS) Open(path string, flags int) (errc int, fh uint64) {
 func (tfs *TaggerFS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 	id := pathToId(path)
 
-	file := tfs.t.GetFile(id)
+	file, err := tfs.t.GetFile(id)
+	if err != nil {
+		return fuse.EADDRNOTAVAIL
+	}
 
 	// It's a directory
 	if file == nil {
@@ -56,7 +59,7 @@ func (tfs *TaggerFS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc in
 		return 0
 	}
 
-	info, _ := os.Stat(tfs.t.GetFilepath(*file))
+	info, _ := os.Stat(tfs.t.GetFilepath(file))
 
 	// It's a file
 	stat.Mode = fuse.S_IFREG | 0444
@@ -67,12 +70,12 @@ func (tfs *TaggerFS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc in
 func (tfs *TaggerFS) Read(path string, buff []byte, offset int64, fh uint64) (n int) {
 	id := pathToId(path)
 
-	file := tfs.t.GetFile(id)
-	if file == nil {
+	file, err := tfs.t.GetFile(id)
+	if err != nil || file == nil {
 		return fuse.EADDRNOTAVAIL
 	}
 
-	realPath := tfs.t.GetFilepath(*file)
+	realPath := tfs.t.GetFilepath(file)
 	f, _ := os.Open(realPath)
 
 	n, _ = f.ReadAt(buff, offset)
@@ -101,7 +104,7 @@ func (tfs *TaggerFS) Readdir(path string, fill func(name string, stat *fuse.Stat
 	if len(parts) > 0 {
 		tags := make([]Tag, len(parts))
 		for i, v := range parts {
-			tag, err := tfs.t.GetTag(v)
+			tag, err := tfs.t.GetTagByName(v)
 			if err != nil {
 				fmt.Println(err)
 				continue
@@ -109,7 +112,10 @@ func (tfs *TaggerFS) Readdir(path string, fill func(name string, stat *fuse.Stat
 			tags[i] = *tag
 		}
 
-		files := tfs.t.GetFiles(tags)
+		files, err := tfs.t.GetFilesByTag(tags)
+		if err != nil {
+			return fuse.EADDRNOTAVAIL
+		}
 		num_files = len(files)
 		for _, file := range files {
 			name := fmt.Sprintf("%d.%s", file.Id, file.Filetype)
