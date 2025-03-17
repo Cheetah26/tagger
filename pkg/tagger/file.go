@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -69,10 +68,10 @@ func (t *Tagger) GetFilepath(file File) string {
 	return filepath.Join(t.dir, level1, level2, idStr+"."+file.Filetype)
 }
 
-func (t *Tagger) ImportFile(path string) error {
+func (t *Tagger) ImportFile(path string) (*File, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	_, filename := filepath.Split(path)
@@ -86,18 +85,18 @@ func (t *Tagger) ImportFile(path string) error {
 	// Insert using a transaction in case copying the file fails
 	tx, err := t.db.Begin()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	result, err := tx.Exec(
 		"INSERT INTO Files(Hash, Filetype, Description) VALUES(?, ?, ?)", file.Hash, file.Filetype, file.Description)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return nil, err
 	}
 	id, err := result.LastInsertId()
 	if err != nil {
 		tx.Rollback()
-		return err
+		return nil, err
 	}
 
 	file.Id = id
@@ -106,16 +105,16 @@ func (t *Tagger) ImportFile(path string) error {
 	err = os.MkdirAll(filepath.Dir(newPath), 0777)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return nil, err
 	}
 	err = os.WriteFile(newPath, data, 0777)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return nil, err
 	}
 
 	tx.Commit()
-	return nil
+	return &file, nil
 }
 
 // Remove a file from the database and disk
@@ -126,9 +125,12 @@ func (t *Tagger) RemoveFile(file File) error {
 		return err
 	}
 
-	_, err = t.db.Exec("DELETE FROM Files WHERE Id = ?", file.Id)
+	res, err := t.db.Exec("DELETE FROM Files WHERE Id = ?", file.Id)
 	if err != nil {
 		return err
+	}
+	if affected, _ := res.RowsAffected(); affected < 1 {
+		return ErrFileNotExist
 	}
 
 	return nil
@@ -199,17 +201,17 @@ func (t *Tagger) GetFiles(tags []Tag) []File {
 		return nil
 	}
 
-	tag_ids := make([]string, len(tags))
+	placeholders := make([]string, len(tags))
+	tagIds := make([]any, len(tags))
 	for i, v := range tags {
-		tag_ids[i] = "(" + strconv.Itoa(v.Id) + ")"
+		placeholders[i] = "(?)"
+		tagIds[i] = v.Id
 	}
 
-	// I don't like doing this instead of a prepared statement,
-	// but it is a lot easier and security isn't really a concern
-	query := fmt.Sprintf(`
+	rows, err := t.db.Query(`
 WITH RECURSIVE
 selection(id) AS (
-	VALUES %s
+	VALUES `+strings.Join(placeholders, ",")+`
 ),
 -- collect child tags of the selection recursively
 child_tags(id, ancestor) AS (
@@ -237,9 +239,7 @@ file_ids AS (
 )
 SELECT Id, Hash, Filetype, Name, Description FROM Files
 JOIN file_ids ON Id = file_id
- `, strings.Join(tag_ids, ","))
-
-	rows, err := t.db.Query(query)
+`, tagIds...)
 
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {

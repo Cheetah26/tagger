@@ -6,6 +6,7 @@ import (
 )
 
 var ErrTagNotExist = errors.New("Tag does not exist")
+var ErrFileNotExist = errors.New("File does not exist")
 
 type DatabaseError struct {
 	Err error
