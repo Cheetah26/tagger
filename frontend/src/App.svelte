@@ -3,6 +3,7 @@
   import store from "./lib/store";
   import DisplayFile from "./lib/displayFile.svelte";
   import TagListChip from "./lib/tagListChip.svelte";
+  import { get } from "svelte/store";
 
   let tagContainer;
 </script>
@@ -18,9 +19,9 @@
   </div>
 
   <div class="overflow-y-auto" bind:this={tagContainer}>
-    <p>Tags: ({$store.tags ? $store.tags.length : 0})</p>
+    <p>Tags: ({$store.tags ? Object.keys($store.tags).length : 0})</p>
     {#if $store.tags}
-      {#each $store.tags as tag}
+      {#each Object.values($store.tags) as tag}
         <TagListChip {tag} contextMenuBounds={tagContainer}></TagListChip>
       {/each}
     {:else}
@@ -45,6 +46,6 @@
 
   <div class="overflow-y-auto">
     <p>Selected:</p>
-    <DisplayFile file={$store.currentFile} />
+    <DisplayFile />
   </div>
 </main>

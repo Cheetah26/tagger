@@ -40,3 +40,7 @@ func Open(path string) (*Tagger, error) {
 func (t *Tagger) Close() {
 	t.db.Close()
 }
+
+func (t *Tagger) GetDir() string {
+	return t.dir
+}

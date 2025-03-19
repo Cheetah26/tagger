@@ -18,6 +18,7 @@
     "moduleDetection": "force"
   },
   "include": [
+    "bindings/**/*.ts",
     "src/**/*.ts",
     "src/**/*.js",
     "src/**/*.svelte"

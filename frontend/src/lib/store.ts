@@ -1,10 +1,11 @@
 import { get, writable } from "svelte/store";
 import { TaggerService } from "../../bindings/github.com/cheetah26/tagger";
-import { File, Tag } from "../../bindings/github.com/cheetah26/tagger/pkg/tagger";
+import { File, Tag, type TagMap } from "../../bindings/github.com/cheetah26/tagger/pkg/tagger";
+import { GetTagByName } from "../../bindings/github.com/cheetah26/tagger/taggerservice";
 
 type StoreContents = {
   files: File[];
-  tags: Tag[];
+  tags: TagMap;
 
   currentFile?: File;
   currentTags: Tag[];
@@ -22,8 +23,7 @@ function CreateStore() {
   const { subscribe, set, update } = store
 
   async function open() {
-    const path = await TaggerService.OpenDBDialog()
-    await TaggerService.Open(path)
+    await TaggerService.Open()
 
     set(emptyStore)
     await getAllTags()
@@ -32,12 +32,14 @@ function CreateStore() {
 
   async function getAllTags() {
     const newTags = await TaggerService.GetAllTags()
+
     update(s => {
-      let newCurrentTags = [];
+      // keep the user's tag selection
+      let newCurrentTags: Tag[] = [];
       for (let ct of s.currentTags) {
-        let nct = newTags.find(t => t.id == ct.id)
+        let nct = Object.keys(newTags).find(id => Number(id) == ct.id)
         if (nct) {
-          newCurrentTags.push(nct)
+          newCurrentTags.push(newTags[nct as `${number}`]);
         }
       }
 
@@ -45,7 +47,7 @@ function CreateStore() {
         ...s,
         tags: newTags,
         currentTags: newCurrentTags
-      }
+      } as StoreContents
     })
   }
 
@@ -55,7 +57,7 @@ function CreateStore() {
     if (state.currentTags.length == 0) {
       state.files = await TaggerService.GetAllFiles()
     } else {
-      state.files = await TaggerService.GetFiles(state.currentTags)
+      state.files = await TaggerService.GetFilesByTag(state.currentTags)
     }
 
     // Deselect the current file if it no longer meets the filter
@@ -67,10 +69,10 @@ function CreateStore() {
   }
 
   async function selectFile(file: File) {
-    const fullFile = await TaggerService.GetFile(file.id)
+    // const fullFile = await TaggerService.GetFile(file.id)
     update(s => ({
       ...s,
-      currentFile: fullFile
+      currentFile: file
     }))
   }
 
@@ -105,11 +107,11 @@ function CreateStore() {
     await getFiles()
   }
 
-  async function addTag(name: string): Promise<Tag> {
-    const newTag = await TaggerService.AddTag(name)
+  async function addTag(name: string): Promise<Tag | null> {
+    const newTag = await TaggerService.AddTag(name).catch(e => console.error(e))
     await getAllTags()
 
-    return newTag
+    return newTag || null
   }
 
   async function tagFile(file: File, tag: Tag) {

@@ -14,7 +14,7 @@
   let results: Result[] = [];
 
   $: tagsWithStrings = $store.tags
-    ? $store.tags.map((t) => ({
+    ? Object.values($store.tags).map((t) => ({
         tag: t,
         tagString: getTagString(t),
       }))
@@ -29,7 +29,9 @@
       return;
     }
     const newTag = await store.addTag(search);
-    onAdd(newTag);
+    if (newTag) {
+      onAdd(newTag);
+    }
     search = "";
   }
 

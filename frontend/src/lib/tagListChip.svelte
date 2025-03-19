@@ -5,6 +5,7 @@
   import store from "./store";
   import type { Tag } from "../../bindings/github.com/cheetah26/tagger/pkg/tagger";
   import TagChip from "./TagChip.svelte";
+    import { get } from "svelte/store";
 
   export let contextMenuBounds;
 
@@ -44,12 +45,12 @@
     if (!editedTag.parents) {
       editedTag.parents = [];
     }
-    editedTag.parents = [...editedTag.parents, tag];
+    editedTag.parents = [...editedTag.parents, tag.id];
   }
 
   async function removeTagTag(tag: Tag) {
-    console.log(editedTag.parents.filter((t) => t.id != tag.id));
-    editedTag.parents = editedTag.parents.filter((t) => t.id != tag.id);
+    console.log(editedTag.parents.filter((id) => id != tag.id));
+    editedTag.parents = editedTag.parents.filter((id) => id != tag.id);
   }
 
   function toggleTagSelection() {
@@ -78,7 +79,7 @@
     <input type="text" id="tag-name" bind:value={editedTag.name} />
 
     <TagEditor
-      tags={editedTag.parents}
+      tags={editedTag.parents.map((t) => get(store).tags[t])}
       onAdd={addTagTag}
       onRemove={removeTagTag}
     ></TagEditor>

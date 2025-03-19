@@ -1,15 +1,10 @@
 <script lang="ts">
   import TagEditor from "./TagEditor.svelte";
   import store from "./store";
-  import type {
-    File,
-    Tag,
-  } from "../../bindings/github.com/cheetah26/tagger/pkg/tagger";
+  import type { Tag } from "../../bindings/github.com/cheetah26/tagger/pkg/tagger";
 
-  export let file: File | undefined;
-
-  // TODO: This might be leaving a trail of unused video players...
-  let videoPlayer: HTMLMediaElement = document.createElement("video");
+  $: file = $store.currentFile;
+  $: filePath = file && `/file/${file.id}`
 
   async function addTag(tag: Tag) {
     if (!file) return;
@@ -52,10 +47,6 @@
     "m4p",
     "flv",
   ];
-  $: if (file && file.filetype) {
-    console.log(file.id);
-    console.log(videoPlayer.canPlayType("video/" + file.filetype));
-  }
 </script>
 
 {#if file === undefined}
@@ -64,11 +55,11 @@
   {#key file.id}
     <!-- Preview file -->
     {#if imageFormats.includes(file.filetype)}
-      <img src="/file/{file.id}" alt={file.hash} />
+      <img src={filePath} alt={file.hash} />
     {:else if videoFormats.includes(file.filetype)}
       <!-- svelte-ignore a11y-media-has-caption -->
       <video controls autoplay>
-        <source src="/file/{file.id}" type="video/{file.filetype}" />
+        <source src={filePath} type="video/{file.filetype}" />
       </video>
     {:else}
       <p class="bg-orange-500">Format {file.filetype} not supported</p>

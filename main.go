@@ -16,7 +16,9 @@ func main() {
 		Name:        "Tagger",
 		Description: "Tag your files",
 		Services: []application.Service{
-			application.NewService(&TaggerService{}),
+			application.NewService(&TaggerService{}, application.ServiceOptions{
+				Route: "/file/",
+			}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

@@ -26,8 +26,10 @@ func (tc *TaggerCli) mount() {
 	// name := strings.TrimSuffix(fullname, filepath.Ext(fullname))
 	// mountpoint := filepath.Join(dir, name)
 
-	t := tagger.Tagger{}
-	t.Open(dbPath)
+	t, err := tagger.Open(dbPath)
+	if err != nil {
+		panic(err)
+	}
 
 	if _, err := os.Stat(mountpoint); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -39,7 +41,7 @@ func (tc *TaggerCli) mount() {
 		// }
 	}
 
-	tc.tfs = tagger.CreateMount(mountpoint, &t)
+	tc.tfs = tagger.CreateMount(mountpoint, t)
 
 	handleInterrupt(func() {
 		os.RemoveAll(mountpoint)
