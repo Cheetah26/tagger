@@ -23,9 +23,10 @@ tasks:
       BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui"{{else}}-buildvcs=false -gcflags=all="-l"{{end}}'
     env:
       GOOS: windows
-      CGO_ENABLED: 0
+      CGO_ENABLED: 1
       GOARCH: '{{.ARCH | default ARCH}}'
       PRODUCTION: '{{.PRODUCTION | default "false"}}'
+      CGO_CFLAGS: '-I "C:\Program Files (x86)\WinFsp\inc\fuse"'
 
   package:
     summary: Packages a production build of the application into a `.exe` bundle

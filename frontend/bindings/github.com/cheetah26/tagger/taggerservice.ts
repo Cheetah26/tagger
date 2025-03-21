@@ -3,132 +3,179 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
+import {Call as $Call, Create as $Create} from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as tagger$0 from "./pkg/tagger/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as application$0 from "../../wailsapp/wails/v3/pkg/application/models.js";
 
-export function AddTag(tagName: string): $CancellablePromise<tagger$0.Tag | null> {
-    return $Call.ByID(2772039574, tagName).then(($result: any) => {
+export function AddTag(tagName: string): Promise<tagger$0.Tag | null> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(2772039574, tagName) as any;
+    let $typingPromise = $resultPromise.then(($result: any) => {
         return $$createType1($result);
-    });
+    }) as any;
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
-export function Close(): $CancellablePromise<void> {
-    return $Call.ByID(1995139705);
+export function Close(): Promise<void> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(1995139705) as any;
+    return $resultPromise;
 }
 
-export function GetAllFiles(): $CancellablePromise<tagger$0.File[]> {
-    return $Call.ByID(3288142011).then(($result: any) => {
+export function GetAllFiles(): Promise<tagger$0.File[]> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(3288142011) as any;
+    let $typingPromise = $resultPromise.then(($result: any) => {
         return $$createType3($result);
-    });
+    }) as any;
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
-export function GetAllTags(): $CancellablePromise<tagger$0.TagMap> {
-    return $Call.ByID(3835784709).then(($result: any) => {
+export function GetAllTags(): Promise<tagger$0.TagMap> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(3835784709) as any;
+    let $typingPromise = $resultPromise.then(($result: any) => {
         return $$createType4($result);
-    });
+    }) as any;
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
-export function GetDir(): $CancellablePromise<string> {
-    return $Call.ByID(1427003228);
+export function GetDir(): Promise<string> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(1427003228) as any;
+    return $resultPromise;
 }
 
-export function GetFile(fileId: number): $CancellablePromise<tagger$0.File | null> {
-    return $Call.ByID(146432811, fileId).then(($result: any) => {
+export function GetFile(fileId: number): Promise<tagger$0.File | null> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(146432811, fileId) as any;
+    let $typingPromise = $resultPromise.then(($result: any) => {
         return $$createType6($result);
-    });
+    }) as any;
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
  * Get the path to a file in Tagger's directory.
  * Does not verify that the file exists on disk, but only construts the path where the file is expected to be.
  */
-export function GetFilepath(file: tagger$0.File | null): $CancellablePromise<string> {
-    return $Call.ByID(704505468, file);
+export function GetFilepath(file: tagger$0.File | null): Promise<string> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(704505468, file) as any;
+    return $resultPromise;
 }
 
-export function GetFilesByTag(tags: tagger$0.Tag[]): $CancellablePromise<tagger$0.File[]> {
-    return $Call.ByID(2220106995, tags).then(($result: any) => {
+export function GetFilesByTag(tags: tagger$0.Tag[]): Promise<tagger$0.File[]> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(2220106995, tags) as any;
+    let $typingPromise = $resultPromise.then(($result: any) => {
         return $$createType3($result);
-    });
+    }) as any;
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
-export function GetTagById(id: number): $CancellablePromise<tagger$0.Tag | null> {
-    return $Call.ByID(68444139, id).then(($result: any) => {
+export function GetTagById(id: number): Promise<tagger$0.Tag | null> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(68444139, id) as any;
+    let $typingPromise = $resultPromise.then(($result: any) => {
         return $$createType1($result);
-    });
+    }) as any;
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
-export function GetTagByName(name: string): $CancellablePromise<tagger$0.Tag | null> {
-    return $Call.ByID(3006808501, name).then(($result: any) => {
+export function GetTagByName(name: string): Promise<tagger$0.Tag | null> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(3006808501, name) as any;
+    let $typingPromise = $resultPromise.then(($result: any) => {
         return $$createType1($result);
-    });
+    }) as any;
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
  * Get all files without any tags
  */
-export function GetUntaggedFiles(): $CancellablePromise<tagger$0.File[]> {
-    return $Call.ByID(664032793).then(($result: any) => {
+export function GetUntaggedFiles(): Promise<tagger$0.File[]> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(664032793) as any;
+    let $typingPromise = $resultPromise.then(($result: any) => {
         return $$createType3($result);
-    });
+    }) as any;
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
 /**
  * Import a file into Tagger, copying it from the source directory and adding it to the database.
  */
-export function ImportFile(path: string): $CancellablePromise<tagger$0.File | null> {
-    return $Call.ByID(3945022492, path).then(($result: any) => {
+export function ImportFile(path: string): Promise<tagger$0.File | null> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(3945022492, path) as any;
+    let $typingPromise = $resultPromise.then(($result: any) => {
         return $$createType6($result);
-    });
+    }) as any;
+    $typingPromise.cancel = $resultPromise.cancel.bind($resultPromise);
+    return $typingPromise;
 }
 
-export function ImportFilesDialog(): $CancellablePromise<void> {
-    return $Call.ByID(877541761);
+export function ImportFilesDialog(): Promise<void> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(877541761) as any;
+    return $resultPromise;
 }
 
-export function Open(): $CancellablePromise<void> {
-    return $Call.ByID(1396752623);
+export function Open(): Promise<void> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(1396752623) as any;
+    return $resultPromise;
 }
 
-export function OpenFile(file: tagger$0.File): $CancellablePromise<void> {
-    return $Call.ByID(4175724449, file);
+export function OpenFile(file: tagger$0.File): Promise<void> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(4175724449, file) as any;
+    return $resultPromise;
 }
 
 /**
  * Remove a file from the database and disk
  * If the file is not found on disk, assume that it was deleted and proceed normally
  */
-export function RemoveFile(file: tagger$0.File | null): $CancellablePromise<void> {
-    return $Call.ByID(29733185, file);
+export function RemoveFile(file: tagger$0.File | null): Promise<void> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(29733185, file) as any;
+    return $resultPromise;
 }
 
-export function RemoveTag(tag: tagger$0.Tag | null): $CancellablePromise<void> {
-    return $Call.ByID(2924440901, tag);
+export function RemoveTag(tag: tagger$0.Tag | null): Promise<void> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(2924440901, tag) as any;
+    return $resultPromise;
 }
 
-export function Reveal(file: tagger$0.File): $CancellablePromise<void> {
-    return $Call.ByID(3136939158, file);
+export function Reveal(file: tagger$0.File): Promise<void> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(3136939158, file) as any;
+    return $resultPromise;
+}
+
+export function ServiceStartup(options: application$0.ServiceOptions): Promise<void> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(25898875, options) as any;
+    return $resultPromise;
 }
 
 /**
  * Add a tag to a file.
  */
-export function TagFile(file: tagger$0.File | null, tag: tagger$0.Tag | null): $CancellablePromise<void> {
-    return $Call.ByID(1993529575, file, tag);
+export function TagFile(file: tagger$0.File | null, tag: tagger$0.Tag | null): Promise<void> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(1993529575, file, tag) as any;
+    return $resultPromise;
 }
 
 /**
  * Remove a specific tag from a file. Will not produce an error if either value is invalid.
  */
-export function UntagFile(file: tagger$0.File | null, tag: tagger$0.Tag | null): $CancellablePromise<void> {
-    return $Call.ByID(852450234, file, tag);
+export function UntagFile(file: tagger$0.File | null, tag: tagger$0.Tag | null): Promise<void> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(852450234, file, tag) as any;
+    return $resultPromise;
 }
 
-export function UpdateTag(tag: tagger$0.Tag | null): $CancellablePromise<void> {
-    return $Call.ByID(1483561978, tag);
+export function UpdateTag(tag: tagger$0.Tag | null): Promise<void> & { cancel(): void } {
+    let $resultPromise = $Call.ByID(1483561978, tag) as any;
+    return $resultPromise;
 }
 
 // Private type creation functions
@@ -136,7 +183,7 @@ const $$createType0 = tagger$0.Tag.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
 const $$createType2 = tagger$0.File.createFrom;
 const $$createType3 = $Create.Array($$createType2);
-var $$createType4 = (function $$initCreateType4(...args: any[]): any {
+var $$createType4 = (function $$initCreateType4(...args): any {
     if ($$createType4 === $$initCreateType4) {
         $$createType4 = $$createType5;
     }
