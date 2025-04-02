@@ -4,4 +4,4 @@ RUN apt update && apt install -y nodejs npm libgtk-3-dev libwebkit2gtk-4.1-dev n
 
 RUN go install -v github.com/wailsapp/wails/v3/cmd/wails3@latest
 
-RUN apt install -y libfuse-dev libfuse3-dev mingw-w64
+RUN apt install -y libfuse-dev

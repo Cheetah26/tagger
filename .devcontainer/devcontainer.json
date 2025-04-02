@@ -20,6 +20,10 @@
 		6080,
 		5901
 	],
+	"runArgs": [
+		"--cap-add=SYS_ADMIN",
+		"--device=/dev/fuse"
+	],
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// "postCreateCommand": "go version",
 	"remoteUser": "root",

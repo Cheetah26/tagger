@@ -4,7 +4,10 @@ go 1.22.4
 
 toolchain go1.23.4
 
-require github.com/wailsapp/wails/v3 v3.0.0-alpha.9
+require (
+	github.com/wailsapp/wails/v3 v3.0.0-alpha.9
+	github.com/winfsp/cgofuse v1.6.0
+)
 
 require (
 	dario.cat/mergo v1.0.1 // indirect
@@ -40,7 +43,6 @@ require (
 	github.com/skeema/knownhosts v1.2.2 // indirect
 	github.com/wailsapp/go-webview2 v1.0.19 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
-	github.com/winfsp/cgofuse v1.6.0
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect

@@ -2,16 +2,37 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"log"
+	"os"
 
+	"github.com/cheetah26/tagger/pkg/fuse"
+	"github.com/cheetah26/tagger/pkg/tagger"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
-func main() {
+func usage() {
+	fmt.Println(` Usage:
+	- open the gui	"tagger"
+	- mount a db	"tagger <path-to-database> <path-to-mountpoint>"`)
+}
 
+func main() {
+	switch len(os.Args) {
+	case 1:
+		gui()
+	case 3:
+		cli()
+	default:
+		usage()
+		os.Exit(1)
+	}
+}
+
+func gui() {
 	app := application.New(application.Options{
 		Name:        "Tagger",
 		Description: "Tag your files",
@@ -29,29 +50,42 @@ func main() {
 	})
 
 	app.NewWebviewWindowWithOptions(application.WebviewWindowOptions{
-		Title: "Tagger",
-		Mac: application.MacWindow{
-			InvisibleTitleBarHeight: 50,
-			Backdrop:                application.MacBackdropTranslucent,
-			TitleBar:                application.MacTitleBarHiddenInset,
-		},
+		Title:            "Tagger",
 		BackgroundColour: application.NewRGB(255, 255, 255),
 		URL:              "/",
 	})
 
-	// Create a goroutine that emits an event containing the current time every second.
-	// The frontend can listen to this event and update the UI accordingly.
-	// go func() {
-	// 	for {
-	// 		now := time.Now().Format(time.RFC1123)
-	// 		app.EmitEvent("time", now)
-	// 		time.Sleep(time.Second)
-	// 	}
-	// }()
-
 	err := app.Run()
-
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func cli() {
+	// otherwise try to mount
+	databaseFile := os.Args[1]
+	mountpoint := os.Args[2]
+	if databaseFile == "" || mountpoint == "" {
+		usage()
+		os.Exit(1)
+	}
+
+	fmt.Printf("Mounting tags from %s at %s", databaseFile, mountpoint)
+
+	tr, err := tagger.Open(databaseFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	unmount, errChan, err := fuse.Mount(mountpoint, tr)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	go func() {
+		if err = <-errChan; err != nil {
+			log.Println(err.Error())
+		}
+	}()
+
+	defer unmount()
 }
