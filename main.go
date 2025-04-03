@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/cheetah26/tagger/pkg/fuse"
 	"github.com/cheetah26/tagger/pkg/tagger"
@@ -70,7 +72,7 @@ func cli() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Mounting tags from %s at %s", databaseFile, mountpoint)
+	fmt.Printf("Mounting tags from %s at %s\n", databaseFile, mountpoint)
 
 	tr, err := tagger.Open(databaseFile)
 	if err != nil {
@@ -88,4 +90,9 @@ func cli() {
 	}()
 
 	defer unmount()
+
+	interrupt := make(chan os.Signal)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+
+	<-interrupt
 }

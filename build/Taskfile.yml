@@ -51,6 +51,10 @@ tasks:
       - "frontend/bindings/**/*"
     cmds:
       - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true -ts
+    env:
+      CGO_ENABLED: 1
+      CGO_CFLAGS: '-I "C:\Program Files (x86)\WinFsp\inc\fuse"'
+
 
   generate:icons:
     summary: Generates Windows `.ico` and Mac `.icns` files from an image
