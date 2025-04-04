@@ -285,5 +285,10 @@ func (t *Tagger) RemoveFile(file *File) error {
 		return ErrFileNotExist
 	}
 
+	_, err = t.db.Exec("DELETE FROM FileTag WHERE FileId = ?", file.Id)
+	if err != nil {
+		return NewDatabaseError(err)
+	}
+
 	return nil
 }
