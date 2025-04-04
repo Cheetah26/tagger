@@ -50,17 +50,25 @@ var (
 type TaggerFS struct {
 	t *tagger.Tagger
 
-	errChan chan error
+	errChan chan error // TODO: add a custom wrapper for errors. currently impossible to tell which function the error originates from
+
+	tempFiles []tempFile
 
 	// Inherit default filesystem actions
 	fuse.FileSystemBase
+}
+
+type tempFile struct {
+	requestedPath string
+	tempPath      string
+	fh            uint64
 }
 
 // Mount a fuse filesystem at mountpoint to browse tags and files outside of Tagger.
 //
 // Tags are organized in a tree structure. The root level shows tags without any parents as folders. Opening one of these folders will show the tag's children, as well as the special folders '+' and '$'. The plus folder is used to add another root-level tag to the search (always an AND operation), while the '$' folder shows files which meet the current search criteria.
 //
-// The error channel sends errors for FUSE, as well as any Tagger errors encountered by the filesystem implementation.
+// The error channel sends errors for FUSE, as well as any Tagger errors encountered by the filesystem implementation. When this happens, an I/O error is returned to the OS.
 //
 // Incomplete example of tag structure, with special folders omitted:
 //
@@ -125,11 +133,6 @@ func (tfs *TaggerFS) Statfs(path string, stat *fuse.Statfs_t) (errc int) {
 	return 0
 }
 
-// Mknod creates a file node.
-func (tfs *TaggerFS) Mknod(path string, mode uint32, dev uint64) (errc int) {
-	return -fuse.ENOSYS
-}
-
 // Mkdir creates a directory.
 func (tfs *TaggerFS) Mkdir(path string, mode uint32) (errc int) {
 	return -fuse.ENOSYS
@@ -146,14 +149,69 @@ func (tfs *TaggerFS) Rename(oldpath string, newpath string) (errc int) {
 }
 
 // Utimens changes the access and modification times of a file.
-func (tfs *TaggerFS) Utimens(path string, tmsp []fuse.Timespec) (errc int) {
-	return -fuse.ENOSYS
+func (tfs *TaggerFS) Utimens(path string, timespec []fuse.Timespec) (errc int) {
+	// newly created files
+	for _, tempFile := range tfs.tempFiles {
+		if path == tempFile.requestedPath {
+			ts := make([]syscall.Timespec, 2)
+			ts[0].Sec, ts[0].Nsec = timespec[0].Sec, timespec[0].Nsec
+			ts[1].Sec, ts[1].Nsec = timespec[1].Sec, timespec[1].Nsec
+
+			err := syscall.UtimesNano(tempFile.tempPath, ts)
+			if err != nil {
+				tfs.errChan <- err
+				return -fuse.EIO
+			}
+			return 0
+		}
+	}
+
+	// existing files
+	id := pathToFileId(path)
+
+	file, err := tfs.t.GetFile(id)
+	if err != nil {
+		if errors.Is(err, tagger.ErrFileNotExist) {
+			return -fuse.ENOENT
+		} else {
+			tfs.errChan <- err
+			return -fuse.EIO
+		}
+	}
+
+	ts := make([]syscall.Timespec, 2)
+	ts[0].Sec, ts[0].Nsec = timespec[0].Sec, timespec[0].Nsec
+	ts[1].Sec, ts[1].Nsec = timespec[1].Sec, timespec[1].Nsec
+
+	err = syscall.UtimesNano(tfs.t.GetFilepath(file), ts)
+	if err != nil {
+		tfs.errChan <- err
+		return -fuse.EIO
+	}
+
+	return 0
 }
 
 // Create creates and opens a file.
 // The flags are a combination of the fuse.O_* constants.
 func (tfs *TaggerFS) Create(path string, flags int, mode uint32) (errc int, fh uint64) {
-	return -fuse.ENOSYS, nullFH
+	_, requestedName := filepath.Split(path)
+
+	// create a temporary file
+	tempPath := filepath.Join(os.TempDir(), requestedName)
+	tempFH, err := syscall.Open(tempPath, flags, mode)
+	if err != nil {
+		tfs.errChan <- err
+		return -fuse.EIO, nullFH
+	}
+
+	tfs.tempFiles = append(tfs.tempFiles, tempFile{
+		requestedPath: path,
+		tempPath:      tempPath,
+		fh:            uint64(tempFH),
+	})
+
+	return 0, uint64(tempFH)
 }
 
 // Open opens a file.
@@ -189,6 +247,61 @@ func (tfs *TaggerFS) Open(path string, flags int) (errc int, fh uint64) {
 // Getattr gets file attributes.
 // This appears to frequently be called with fh == nullFH, so the handle is ignored in favor of the file path
 func (tfs *TaggerFS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
+	dirs := pathToDirs(path)
+	lastDir := dirs[len(dirs)-1]
+
+	// check that the leading path is valid
+	for _, dir := range dirs[:1] {
+		// skip valid parts of the path which aren't a tag
+		if dir == "" || dir == "+" || dir == "$" {
+			continue
+		}
+
+		_, err := tfs.t.GetTagByName(dir)
+		if err != nil {
+			if errors.Is(err, tagger.ErrTagNotExist) {
+				// this path doesn't exist if it includes a non-tag
+				return -fuse.ENOENT
+			} else {
+				tfs.errChan <- err
+				return -fuse.EIO
+			}
+		}
+	}
+
+	// is the final entry a special folder
+	if lastDir == "" || lastDir == "+" || lastDir == "$" {
+		stat.Mode = dirStat.Mode
+		return 0
+	}
+
+	// is the final entry a tag
+	tag, err := tfs.t.GetTagByName(lastDir)
+	if err != nil && !errors.Is(err, tagger.ErrTagNotExist) {
+		tfs.errChan <- err
+		return -fuse.EIO
+	}
+	if tag != nil {
+		stat.Mode = dirStat.Mode
+		return 0
+	}
+
+	// is it a newly created file
+	for _, tempFile := range tfs.tempFiles {
+		if path == tempFile.requestedPath {
+			info, err := os.Stat(tempFile.tempPath)
+			if err != nil {
+				tfs.errChan <- err
+				return -fuse.ENOENT
+			}
+			stat.Mode = fileStat.Mode
+			stat.Size = info.Size()
+			stat.Mtim = fuse.NewTimespec(info.ModTime())
+			return 0
+		}
+	}
+
+	// is it a file
 	id := pathToFileId(path)
 
 	file, err := tfs.t.GetFile(id)
@@ -196,14 +309,11 @@ func (tfs *TaggerFS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc in
 		tfs.errChan <- err
 		return -fuse.ENOENT
 	}
-
-	// tag / directory
+	// last entry is not a known dir or file
 	if file == nil {
-		stat.Mode = dirStat.Mode
-		return 0
+		return -fuse.ENOENT
 	}
 
-	// file
 	info, err := os.Stat(tfs.t.GetFilepath(file))
 	if err != nil {
 		tfs.errChan <- err
@@ -219,10 +329,30 @@ func (tfs *TaggerFS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc in
 
 // Truncate changes the size of a file.
 func (tfs *TaggerFS) Truncate(path string, size int64, fh uint64) int {
-	err := syscall.Ftruncate(int(fh), size)
-	if err != nil {
-		tfs.errChan <- err
-		return -fuse.EIO
+	if fh == nullFH {
+		id := pathToFileId(path)
+
+		file, err := tfs.t.GetFile(id)
+		if err != nil {
+			if errors.Is(err, tagger.ErrFileNotExist) {
+				return -fuse.ENOSYS
+			} else {
+				tfs.errChan <- err
+				return -fuse.EIO
+			}
+		}
+
+		err = syscall.Truncate(tfs.t.GetFilepath(file), size)
+		if err != nil {
+			tfs.errChan <- err
+			return -fuse.EIO
+		}
+	} else {
+		err := syscall.Ftruncate(int(fh), size)
+		if err != nil {
+			tfs.errChan <- err
+			return -fuse.EIO
+		}
 	}
 
 	return 0
@@ -258,7 +388,67 @@ func (tfs *TaggerFS) Release(path string, fh uint64) (errc int) {
 		return -fuse.EIO
 	}
 
+	// if it was a file created through the FUSE layer, import it and remove the temp file
+	for i, tempFile := range tfs.tempFiles {
+		if fh == tempFile.fh {
+			tfs.tempFiles = slices.Delete(tfs.tempFiles, i, i+1)
+			file, err := tfs.t.ImportFile(tempFile.tempPath)
+			if err != nil {
+				tfs.errChan <- err
+				return -fuse.EIO
+			}
+			err = os.Remove(tempFile.tempPath)
+			if err != nil {
+				tfs.errChan <- err
+				return -fuse.EIO
+			}
+
+			// tag the new file based on it's path
+			// only the most-specific tags are included, i.e. those with no children in the path
+			// for example, the path "a/b/c/+/x/y/" will add the tags c and y
+			var selectedTags = make(tagger.TagMap)
+			var parentTagIds = make(map[int64]bool)
+			for _, dir := range pathToDirs(tempFile.requestedPath) {
+				tag, err := tfs.t.GetTagByName(dir)
+				if errors.Is(err, tagger.ErrTagNotExist) {
+					continue
+				}
+				if err != nil {
+					tfs.errChan <- err
+					return -fuse.EIO
+				}
+				selectedTags[tag.Id] = *tag
+				for _, id := range tag.Parents {
+					parentTagIds[id] = true
+				}
+			}
+
+			parentTagIdsList := make([]int64, 0, len(parentTagIds))
+			for k := range parentTagIds {
+				parentTagIdsList = append(parentTagIdsList, k)
+			}
+
+			for id, tag := range selectedTags {
+				if !slices.Contains(parentTagIdsList, id) {
+					err = tfs.t.TagFile(file, &tag)
+					if err != nil {
+						tfs.errChan <- err
+						return -fuse.EIO
+					}
+
+				}
+			}
+
+			return 0
+		}
+	}
+
 	return 0
+}
+
+// Unlink removes a file.
+func (tfs *TaggerFS) Unlink(path string) (errc int) {
+	return -fuse.ENOSYS
 }
 
 // Fsync synchronizes file contents.

@@ -136,4 +136,42 @@ func TestBasicFunctionality(t *testing.T) {
 	// folder "b" should have no dirs b/c it has no child tags
 	checkDirContents(t, path.Join(mountDir, "/b/"), []string{"$", "+"}, nil)
 	checkDirContents(t, path.Join(mountDir, "/b/$"), nil, []string{"1.txt"})
+
+	// read a file
+	contents, err := os.ReadFile(path.Join(mountDir, "/$/1.txt"))
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if string(contents) != "f1" {
+		t.Error("Read: Incorrect file contents")
+	}
+
+	// write to a file
+	err = os.WriteFile(path.Join(mountDir, "/$/1.txt"), []byte("new contents"), 0)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	contents, err = os.ReadFile(path.Join(mountDir, "/$/1.txt"))
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if string(contents) != "new contents" {
+		t.Error("Read: Incorrect file contents")
+	}
+
+	// create a new file
+	err = os.WriteFile(path.Join(mountDir, "/a/a1/+/b/new.txt"), []byte("new file"), 0)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	files, _ := os.ReadDir(path.Join(mountDir, "/$/"))
+	t.Log(files)
+	contents, err = os.ReadFile(path.Join(mountDir, "/$/3.txt"))
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if string(contents) != "new file" {
+		t.Error("Read: Incorrect file contents")
+	}
+
 }
