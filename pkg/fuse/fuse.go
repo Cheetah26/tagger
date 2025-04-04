@@ -1,3 +1,5 @@
+// Some functions modified from https://github.com/winfsp/cgofuse/blob/master/examples/passthrough/passthrough.go
+
 package fuse
 
 import (
@@ -8,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/cheetah26/tagger/pkg/tagger"
@@ -21,8 +24,28 @@ func pathToFileId(path string) int64 {
 	return id
 }
 
-var ErrMountFailed = errors.New("mount failed")
-var ErrUnmountFailed = errors.New("unmount failed")
+func fileToFilename(file tagger.File) string {
+	return fmt.Sprintf("%d.%s", file.Id, file.Filetype)
+}
+
+func pathToDirs(path string) []string {
+	path = filepath.Clean(path)
+
+	return strings.Split(path, string(filepath.Separator))
+}
+
+var (
+	ErrMountFailed   = errors.New("mount failed")
+	ErrUnmountFailed = errors.New("unmount failed")
+)
+
+// A null file handle
+const nullFH = ^uint64(0)
+
+var (
+	dirStat  = &fuse.Stat_t{Mode: fuse.S_IFDIR | 0700}
+	fileStat = &fuse.Stat_t{Mode: fuse.S_IFREG | 0700}
+)
 
 type TaggerFS struct {
 	t *tagger.Tagger
@@ -56,7 +79,6 @@ func Mount(mountpoint string, tagger *tagger.Tagger) (func() error, <-chan error
 	}
 
 	host := fuse.NewFileSystemHost(tfs)
-	host.SetCapReaddirPlus(true)
 
 	// Mount / unmount code modified from rclone
 	// https://github.com/rclone/rclone/blob/839eef0db269333870dc04cb79d0dd0c95e5a418/cmd/cmount/mount.go
@@ -123,16 +145,6 @@ func (tfs *TaggerFS) Rename(oldpath string, newpath string) (errc int) {
 	return -fuse.ENOSYS
 }
 
-// Chmod changes the permission bits of a file.
-func (tfs *TaggerFS) Chmod(path string, mode uint32) (errc int) {
-	return -fuse.ENOSYS
-}
-
-// Chown changes the owner and group of a file.
-func (tfs *TaggerFS) Chown(path string, uid uint32, gid uint32) (errc int) {
-	return -fuse.ENOSYS
-}
-
 // Utimens changes the access and modification times of a file.
 func (tfs *TaggerFS) Utimens(path string, tmsp []fuse.Timespec) (errc int) {
 	return -fuse.ENOSYS
@@ -141,27 +153,41 @@ func (tfs *TaggerFS) Utimens(path string, tmsp []fuse.Timespec) (errc int) {
 // Create creates and opens a file.
 // The flags are a combination of the fuse.O_* constants.
 func (tfs *TaggerFS) Create(path string, flags int, mode uint32) (errc int, fh uint64) {
-	return -fuse.ENOSYS, ^uint64(0)
+	return -fuse.ENOSYS, nullFH
 }
 
 // Open opens a file.
 // The flags are a combination of the fuse.O_* constants.
 func (tfs *TaggerFS) Open(path string, flags int) (errc int, fh uint64) {
 	id := pathToFileId(path)
-	_, err := tfs.t.GetFile(id)
+
+	file, err := tfs.t.GetFile(id)
 	if err != nil {
 		if errors.Is(err, tagger.ErrFileNotExist) {
-			return -fuse.ENOSYS, ^uint64(0)
+			return -fuse.ENOSYS, nullFH
 		} else {
 			tfs.errChan <- err
-			return -fuse.EIO, ^uint64(0)
+			return -fuse.EIO, nullFH
 		}
 	}
 
-	return 0, ^uint64(0)
+	handle, err := syscall.Open(
+		tfs.t.GetFilepath(file),
+		flags,
+		0,
+	)
+
+	if err != nil {
+		tfs.errChan <- err
+		return -fuse.EIO, nullFH
+	}
+
+	return 0, uint64(handle)
+
 }
 
 // Getattr gets file attributes.
+// This appears to frequently be called with fh == nullFH, so the handle is ignored in favor of the file path
 func (tfs *TaggerFS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc int) {
 	id := pathToFileId(path)
 
@@ -173,7 +199,7 @@ func (tfs *TaggerFS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc in
 
 	// tag / directory
 	if file == nil {
-		stat.Mode = fuse.S_IFDIR | 0777
+		stat.Mode = dirStat.Mode
 		return 0
 	}
 
@@ -184,38 +210,55 @@ func (tfs *TaggerFS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc in
 		return -fuse.ENOENT
 	}
 
-	stat.Mode = fuse.S_IFREG | 0777
+	stat.Mode = fileStat.Mode
 	stat.Size = info.Size()
 	stat.Mtim = fuse.NewTimespec(info.ModTime())
 
 	return 0
 }
 
-// Read reads data from a file.
-func (tfs *TaggerFS) Read(path string, buff []byte, offset int64, fh uint64) (errc int) {
-	id := pathToFileId(path)
-
-	file, err := tfs.t.GetFile(id)
+// Truncate changes the size of a file.
+func (tfs *TaggerFS) Truncate(path string, size int64, fh uint64) int {
+	err := syscall.Ftruncate(int(fh), size)
 	if err != nil {
 		tfs.errChan <- err
-		return -fuse.ENOENT
+		return -fuse.EIO
 	}
 
-	realPath := tfs.t.GetFilepath(file)
-	f, _ := os.Open(realPath)
+	return 0
+}
 
-	bytes, _ := f.ReadAt(buff, offset)
-	return bytes
+// Read reads data from a file.
+func (tfs *TaggerFS) Read(path string, buff []byte, offset int64, fh uint64) (numBytes int) {
+	numBytes, err := syscall.Pread(int(fh), buff, offset)
+	if err != nil {
+		tfs.errChan <- err
+		return -fuse.EIO
+	}
+
+	return numBytes
 }
 
 // Write writes data to a file.
-func (tfs *TaggerFS) Write(path string, buff []byte, ofst int64, fh uint64) (errc int) {
-	return -fuse.ENOSYS
+func (tfs *TaggerFS) Write(path string, buff []byte, offset int64, fh uint64) (numBytes int) {
+	numBytes, err := syscall.Pwrite(int(fh), buff, offset)
+	if err != nil {
+		tfs.errChan <- err
+		return -fuse.EIO
+	}
+
+	return numBytes
 }
 
 // Release closes an open file.
 func (tfs *TaggerFS) Release(path string, fh uint64) (errc int) {
-	return -fuse.ENOSYS
+	err := syscall.Close(int(fh))
+	if err != nil {
+		tfs.errChan <- err
+		return -fuse.EIO
+	}
+
+	return 0
 }
 
 // Fsync synchronizes file contents.
@@ -224,48 +267,38 @@ func (tfs *TaggerFS) Fsync(path string, datasync bool, fh uint64) (errc int) {
 }
 
 // Opendir opens a directory.
+// Since none of the directories are "real", this only checks if the path is valid and always returns a null handle
 func (tfs *TaggerFS) Opendir(path string) (errc int, fh uint64) {
-	pathParts := strings.Split(path, "/")[1:]
+	for _, dir := range pathToDirs(path) {
+		// skip valid parts of the path which aren't a tag
+		if dir == "" || dir == "+" || dir == "$" {
+			continue
+		}
 
-	for _, part := range pathParts {
-		switch part {
-		case "":
-			continue
-		case "+":
-			continue
-		case "$":
-			continue
-
-		default:
-			_, err := tfs.t.GetTagByName(part)
-			if err != nil {
-				if errors.Is(err, tagger.ErrTagNotExist) {
-					// a path is invalid if any of its parts are neither a tag or any of the special folders
-					return -fuse.ENOTDIR, ^uint64(0)
-				} else {
-					tfs.errChan <- err
-					return -fuse.EIO, ^uint64(0)
-				}
+		_, err := tfs.t.GetTagByName(dir)
+		if err != nil {
+			if errors.Is(err, tagger.ErrTagNotExist) {
+				// this dir doesn't exist if its path includes a non-tag
+				return -fuse.ENOTDIR, nullFH
+			} else {
+				tfs.errChan <- err
+				return -fuse.EIO, nullFH
 			}
-			continue
 		}
 	}
 
-	return 0, ^uint64(0)
+	return 0, nullFH
 }
 
 // Readdir reads a directory.
 func (tfs *TaggerFS) Readdir(
 	path string,
-	fill func(name string, stat *fuse.Stat_t, ofst int64) bool,
-	ofst int64,
+	fill func(name string, stat *fuse.Stat_t, offset int64) bool,
+	offset int64,
 	fh uint64,
 ) (errc int) {
-	dirStat := &fuse.Stat_t{Mode: fuse.S_IFDIR | 0777}
-	fileStat := &fuse.Stat_t{Mode: fuse.S_IFREG | 0777}
-
-	pathParts := strings.Split(path, "/")[1:]
-	lastDir := pathParts[len(pathParts)-1]
+	dirs := pathToDirs(path)
+	lastDir := dirs[len(dirs)-1]
 
 	tags, err := tfs.t.GetAllTags()
 	if err != nil {
@@ -276,18 +309,17 @@ func (tfs *TaggerFS) Readdir(
 	var selectedTagIds []int64
 	var selectedTags []tagger.Tag
 	for _, tag := range tags {
-		if slices.Contains(pathParts, tag.Name) {
+		if slices.Contains(dirs, tag.Name) {
 			selectedTagIds = append(selectedTagIds, tag.Id)
 			selectedTags = append(selectedTags, tag)
 		}
 	}
 
-	fill(".", nil, 0)
-	fill("..", nil, 0)
+	fill(".", dirStat, 0)
+	fill("..", dirStat, 0)
 
-	// show files matching the selection for the '$' folder
-	if lastDir == "$" {
-		// get files matching the current search, or all files if no tags are selected
+	switch lastDir {
+	case "$": // show files matching the current tag selection, or all tags if no selection
 		var files []tagger.File
 		if len(selectedTags) > 0 {
 			files, err = tfs.t.GetFilesByTag(selectedTags)
@@ -300,17 +332,14 @@ func (tfs *TaggerFS) Readdir(
 		}
 
 		for _, file := range files {
-			name := fmt.Sprintf("%d.%s", file.Id, file.Filetype)
+			name := fileToFilename(file)
 			fill(name, fileStat, 0)
 		}
-		return 0
-	}
 
-	// add the show files folder
-	fill("$", dirStat, 0)
-
-	// fill with unselected root-level tags on the root mountpoint or the '+' special folder
-	if path == "/" || lastDir == "+" {
+	case "": // fill with unselected root-level tags on the root or the '+' special folder
+		fill("$", dirStat, 0) // add the show files folder
+		fallthrough
+	case "+":
 		for _, tag := range tags {
 			files, err := tfs.t.GetFilesByTag(append(selectedTags, tag))
 			if err != nil {
@@ -322,32 +351,31 @@ func (tfs *TaggerFS) Readdir(
 				fill(tag.Name, dirStat, 0)
 			}
 		}
-		return 0
-	}
+	default: // show folders for the current dir's child tags and both special folders
+		fill("+", dirStat, 0)
+		fill("$", dirStat, 0)
 
-	// otherwise, put the current dir's children as well as the '+' plus folder
-	fill("+", dirStat, 0)
-
-	var currentTag *tagger.Tag
-	for _, tag := range tags {
-		if tag.Name == lastDir {
-			currentTag = &tag
-			break
+		var currentTag *tagger.Tag
+		for _, tag := range tags {
+			if tag.Name == lastDir {
+				currentTag = &tag
+				break
+			}
 		}
-	}
-	if currentTag == nil {
-		return -fuse.ENOENT
-	}
-
-	for _, tag := range tags {
-		files, err := tfs.t.GetFilesByTag(append(selectedTags, tag))
-		if err != nil {
-			tfs.errChan <- err
-			continue
+		if currentTag == nil {
+			return -fuse.ENOENT
 		}
 
-		if len(files) > 0 && slices.Contains(tag.Parents, currentTag.Id) {
-			fill(tag.Name, dirStat, 0)
+		for _, tag := range tags {
+			files, err := tfs.t.GetFilesByTag(append(selectedTags, tag))
+			if err != nil {
+				tfs.errChan <- err
+				continue
+			}
+
+			if len(files) > 0 && slices.Contains(tag.Parents, currentTag.Id) {
+				fill(tag.Name, dirStat, 0)
+			}
 		}
 	}
 
@@ -356,5 +384,5 @@ func (tfs *TaggerFS) Readdir(
 
 // Releasedir closes an open directory.
 func (tfs *TaggerFS) Releasedir(path string, fh uint64) (errc int) {
-	return -fuse.ENOSYS
+	return 0
 }
