@@ -1,7 +1,7 @@
 <script lang="ts">
   import ContextMenu from "$lib/components/ContextMenu.svelte";
   import TagEditor from "./TagEditor.svelte";
-  import Modal from "./Modal.svelte";
+  import Modal from "./components/Modal.svelte";
   import store from "./store";
   import type { Tag } from "../../bindings/github.com/cheetah26/tagger/pkg/tagger";
   import TagChip from "./TagChip.svelte";
