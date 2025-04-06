@@ -1,4 +1,14 @@
 {
+  "compilerOptions": {
+    "paths": {
+      "$lib": [
+        "./src/lib"
+      ],
+      "$lib/*": [
+        "./src/lib/*"
+      ]
+    }
+  },
   "files": [],
   "references": [
     {

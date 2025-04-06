@@ -1,4 +1,10 @@
 {
+  "include": [
+    "bindings/**/*.ts",
+    "src/**/*.ts",
+    "src/**/*.js",
+    "src/**/*.svelte"
+  ],
   "extends": "@tsconfig/svelte/tsconfig.json",
   "compilerOptions": {
     "composite": true,
@@ -15,12 +21,14 @@
     "allowJs": true,
     "checkJs": true,
     "isolatedModules": true,
-    "moduleDetection": "force"
+    "moduleDetection": "force",
+    "paths": {
+      "$lib": [
+        "./src/lib"
+      ],
+      "$lib/*": [
+        "./src/lib/*"
+      ]
+    }
   },
-  "include": [
-    "bindings/**/*.ts",
-    "src/**/*.ts",
-    "src/**/*.js",
-    "src/**/*.svelte"
-  ]
 }
