@@ -30,12 +30,12 @@ func setup(t *testing.T) *tagger.Tagger {
 
 	a1, err := tr.AddTag("a1")
 	errs = append(errs, err)
-	a1.Parents = []int64{a.Id}
+	a1.Parents = []tagger.TagID{a.Id}
 	errs = append(errs, tr.UpdateTag(a1))
 
 	a2, err := tr.AddTag("a2")
 	errs = append(errs, err)
-	a2.Parents = []int64{a.Id}
+	a2.Parents = []tagger.TagID{a.Id}
 	errs = append(errs, tr.UpdateTag(a2))
 
 	b, err := tr.AddTag("b")

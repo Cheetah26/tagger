@@ -306,7 +306,7 @@ func (tfs *TaggerFS) Readdir(
 		return -fuse.EIO
 	}
 
-	var selectedTagIds []int64
+	var selectedTagIds []tagger.TagID
 	var selectedTags []tagger.Tag
 	for _, tag := range tags {
 		if slices.Contains(dirs, tag.Name) {

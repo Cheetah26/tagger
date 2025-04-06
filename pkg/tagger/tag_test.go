@@ -8,8 +8,9 @@ import (
 	"github.com/cheetah26/tagger/pkg/tagger"
 )
 
-func compareTagParents(tr *tagger.Tagger, a, b *tagger.Tag) bool {
-	if len(a.Parents) != len(b.Parents) {
+func compareTagRelatives(tr *tagger.Tagger, a, b *tagger.Tag) bool {
+	if (len(a.Parents) != len(b.Parents)) ||
+		(len(a.Children) != len(b.Children)) {
 		return false
 	}
 
@@ -24,7 +25,23 @@ func compareTagParents(tr *tagger.Tagger, a, b *tagger.Tag) bool {
 			return false
 		}
 
-		if parentA.Id != parentB.Id || !compareTagParents(tr, parentA, parentB) {
+		if parentA.Id != parentB.Id || !compareTagRelatives(tr, parentA, parentB) {
+			return false
+		}
+	}
+
+	for i := range len(a.Children) {
+		childA, err := tr.GetTagById(a.Children[i])
+		if err != nil {
+			return false
+		}
+
+		childB, err := tr.GetTagById(b.Children[i])
+		if err != nil {
+			return false
+		}
+
+		if childA.Id != childB.Id || !compareTagRelatives(tr, childA, childB) {
 			return false
 		}
 	}
@@ -152,26 +169,26 @@ func TestParents(t *testing.T) {
 	if err != nil {
 		t.Error("Add parent: Unable to get child")
 	}
-	if !compareTagParents(tr, updated, child) {
+	if !compareTagRelatives(tr, updated, child) {
 		t.Error("Add parent: Child's parent tags are incorrect")
 	}
 	updated, err = tr.GetTagById(grandchild.Id)
 	if err != nil {
 		t.Error("Add parent: Unable to get grandchild")
 	}
-	if !compareTagParents(tr, updated, grandchild) {
+	if !compareTagRelatives(tr, updated, grandchild) {
 		t.Error("Add parent: Grandchild's parents are incorrect")
 	}
 
 	// remove parent from child
-	child.Parents = []int64{}
+	child.Parents = []tagger.TagID{}
 	tr.UpdateTag(child)
 
 	updated, err = tr.GetTagById(child.Id)
 	if err != nil {
 		t.Error("Remove parent: Unable to get child")
 	}
-	if !compareTagParents(tr, updated, child) {
+	if !compareTagRelatives(tr, updated, child) {
 		t.Error("Remove parent: Child's parent tags are incorrect")
 	}
 }
@@ -206,7 +223,7 @@ func TestNonexistent(t *testing.T) {
 	fake := &tagger.Tag{
 		Id:      22,
 		Name:    "fake tag",
-		Parents: []int64{},
+		Parents: []tagger.TagID{},
 	}
 
 	err = tr.UpdateTag(fake)

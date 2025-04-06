@@ -214,12 +214,12 @@ func TestComplexTagSearch(t *testing.T) {
 
 	a1, err := tr.AddTag("A1")
 	errs = append(errs, err)
-	a1.Parents = []int64{a.Id}
+	a1.Parents = []tagger.TagID{a.Id}
 	errs = append(errs, tr.UpdateTag(a1))
 
 	a2, err := tr.AddTag("A2")
 	errs = append(errs, err)
-	a2.Parents = []int64{a.Id}
+	a2.Parents = []tagger.TagID{a.Id}
 	errs = append(errs, tr.UpdateTag(a2))
 
 	b, err := tr.AddTag("B")

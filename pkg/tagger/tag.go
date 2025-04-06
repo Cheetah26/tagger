@@ -5,13 +5,16 @@ import (
 	"errors"
 )
 
+type TagID int64
+
 type Tag struct {
-	Id      int64   `json:"id"`
-	Name    string  `json:"name"`
-	Parents []int64 `json:"parents"`
+	Id       TagID   `json:"id"`
+	Name     string  `json:"name"`
+	Parents  []TagID `json:"parents"`
+	Children []TagID `json:"children"`
 }
 
-type TagMap map[int64]Tag
+type TagMap map[TagID]Tag
 
 func (t *Tagger) AddTag(tagName string) (*Tag, error) {
 	res, err := t.db.Exec("INSERT INTO Tags(name) VALUES(?)", tagName)
@@ -25,12 +28,12 @@ func (t *Tagger) AddTag(tagName string) (*Tag, error) {
 	}
 
 	return &Tag{
-		Id:   id,
+		Id:   TagID(id),
 		Name: tagName,
 	}, nil
 }
 
-func (t *Tagger) GetTagById(id int64) (*Tag, error) {
+func (t *Tagger) GetTagById(id TagID) (*Tag, error) {
 	var tag Tag
 
 	row := t.db.QueryRow("SELECT * FROM Tags WHERE Id = ?", id)
@@ -87,11 +90,9 @@ func (t *Tagger) GetAllTags() (TagMap, error) {
 			return nil, NewDatabaseError(err)
 		}
 
-		parents, err := t.getParentTagIds(&tag)
-		if err != nil {
-			return nil, err
+		if err := t.getRelativeTags(&tag); err != nil {
+			return nil, NewDatabaseError(err)
 		}
-		tag.Parents = parents
 
 		tags[tag.Id] = tag
 	}
@@ -99,8 +100,24 @@ func (t *Tagger) GetAllTags() (TagMap, error) {
 	return tags, nil
 }
 
-func (t *Tagger) getParentTagIds(tag *Tag) ([]int64, error) {
-	var parents []int64
+func (t *Tagger) getRelativeTags(tag *Tag) error {
+	parents, err := t.getParentTagIds(tag)
+	if err != nil {
+		return err
+	}
+	tag.Parents = parents
+
+	children, err := t.getChildTagIds(tag)
+	if err != nil {
+		return err
+	}
+	tag.Children = children
+
+	return nil
+}
+
+func (t *Tagger) getParentTagIds(tag *Tag) ([]TagID, error) {
+	var parents []TagID
 
 	rows, err := t.db.Query("SELECT ParentTagId FROM TagTag WHERE ChildTagId = ?", tag.Id)
 	if err != nil {
@@ -113,10 +130,30 @@ func (t *Tagger) getParentTagIds(tag *Tag) ([]int64, error) {
 			return nil, NewDatabaseError(err)
 		}
 
-		parents = append(parents, parent)
+		parents = append(parents, TagID(parent))
 	}
 
 	return parents, nil
+}
+
+func (t *Tagger) getChildTagIds(tag *Tag) ([]TagID, error) {
+	var children []TagID
+
+	rows, err := t.db.Query("SELECT ChildTagId FROM TagTag WHERE ParentTagId = ?", tag.Id)
+	if err != nil {
+		return nil, NewDatabaseError(err)
+	}
+	for rows.Next() {
+		var child int64
+		err = rows.Scan(&child)
+		if err != nil {
+			return nil, NewDatabaseError(err)
+		}
+
+		children = append(children, TagID(child))
+	}
+
+	return children, nil
 }
 
 func (t *Tagger) RemoveTag(tag *Tag) error {
