@@ -1,10 +1,11 @@
 <script lang="ts">
-  import TagEditor from "./TagEditor.svelte";
-  import store from "./store";
-  import type { Tag } from "../../bindings/github.com/cheetah26/tagger/pkg/tagger";
+  import TagEditor from "$lib/TagEditor.svelte";
+  import store from "$lib/store";
+  import type { Tag } from "$bindings/pkg/tagger";
+  import { Pane, PaneGroup, PaneResizer } from "paneforge";
 
-  $: file = $store.currentFile;
-  $: filePath = file && `/file/${file.id}`
+  let file = $derived($store.currentFile);
+  let filePath = $derived(file && `/file/${file.id}`);
 
   async function addTag(tag: Tag) {
     if (!file) return;
@@ -53,33 +54,40 @@
   <p>No file selected</p>
 {:else}
   {#key file.id}
-    <!-- Preview file -->
-    {#if imageFormats.includes(file.filetype)}
-      <img src={filePath} alt={file.hash} />
-    {:else if videoFormats.includes(file.filetype)}
-      <!-- svelte-ignore a11y-media-has-caption -->
-      <video controls autoplay>
-        <source src={filePath} type="video/{file.filetype}" />
-      </video>
-    {:else}
-      <p class="bg-orange-500">Format {file.filetype} not supported</p>
-    {/if}
+    <PaneGroup direction="vertical">
+      <Pane defaultSize={1}>
+        <!-- Preview file -->
+        {#if imageFormats.includes(file.filetype)}
+          <!-- svelte-ignore a11y_missing_attribute -->
+          <img src={filePath} class="w-full h-full object-contain" />
+        {:else if videoFormats.includes(file.filetype)}
+          <!-- svelte-ignore a11y_media_has_caption -->
+          <video controls autoplay class="w-full h-full object-contain">
+            <source src={filePath} type="video/{file.filetype}" />
+          </video>
+        {:else}
+          <p class="bg-orange-500">Format {file.filetype} not supported</p>
+        {/if}
+      </Pane>
+      <PaneResizer class="h-1 my-1 border"></PaneResizer>
+      <Pane defaultSize={2} class="overflow-y-auto">
+        <p class="break-all">{file.hash.slice(0, 8)}</p>
 
-    <p class="break-all">{file.hash.slice(0, 8)}</p>
+        <!-- Tags -->
+        <TagEditor tags={file.tags} onAdd={addTag} onRemove={removeTag}
+        ></TagEditor>
 
-    <!-- Tags -->
-    <TagEditor tags={file.tags} onAdd={addTag} onRemove={removeTag}></TagEditor>
+        <p>Description:</p>
+        {#if file.description}
+          <p class="break-all">{file.description}</p>
+        {/if}
 
-    <p>Description:</p>
-    {#if file.description}
-      <p class="break-all">{file.description}</p>
-      <p>HI</p>
-    {/if}
-
-    <p class="mt-4">
-      <button on:click={store.openCurrentFile}>Open</button>
-      <button on:click={store.revealCurrentFile}>Reveal</button>
-      <button on:click={removeFile}>Remove</button>
-    </p>
+        <p class="mt-4">
+          <button onclick={store.openCurrentFile}>Open</button>
+          <button onclick={store.revealCurrentFile}>Reveal</button>
+          <button onclick={removeFile}>Remove</button>
+        </p>
+      </Pane>
+    </PaneGroup>
   {/key}
 {/if}
