@@ -183,11 +183,16 @@ func (t *Tagger) UpdateTag(tag *Tag) error {
 	}
 
 	// Remove all parent tags, then re-add them using the updated list
-	_, err = tx.Exec("DELETE FROM TagTag WHERE ChildTagId = ?", tag.Id)
+	_, err = tx.Exec("DELETE FROM TagTag WHERE ParentTagId = ? OR ChildTagId = ?", tag.Id, tag.Id)
 	allErrors = append(allErrors, NewDatabaseError(err))
 
 	for _, parent := range tag.Parents {
 		_, err = tx.Exec("INSERT INTO TagTag(ParentTagId, ChildTagId) VALUES(?, ?)", parent, tag.Id)
+		allErrors = append(allErrors, NewDatabaseError(err))
+	}
+
+	for _, child := range tag.Children {
+		_, err = tx.Exec("INSERT INTO TagTag(ParentTagId, ChildTagId) VALUES(?, ?)", tag.Id, child)
 		allErrors = append(allErrors, NewDatabaseError(err))
 	}
 

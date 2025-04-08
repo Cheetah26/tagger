@@ -1,6 +1,5 @@
-import { get } from "svelte/store";
-import type { Tag } from "../../bindings/github.com/cheetah26/tagger/pkg/tagger";
-import store from "./store";
+import type { Tag } from "$bindings/pkg/tagger";
+import { appState } from "./state.svelte";
 
 export function getTagString(tag: Tag): string {
   let result = tag.name
@@ -10,7 +9,7 @@ export function getTagString(tag: Tag): string {
   }
 
   result += "("
-  result += tag.parents.map(p => getTagString(get(store).tags[p])).join(", ")
+  result += tag.parents.map(p => getTagString(appState.allTags[p])).join(", ")
   result += ")"
 
   return result

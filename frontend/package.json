@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/vite": "^4.0.14",
     "@tsconfig/svelte": "^5.0.4",
     "svelte": "^5.20.2",
@@ -22,6 +23,7 @@
   },
   "dependencies": {
     "@wailsio/runtime": "^3.0.0-alpha.66",
+    "fuse.js": "^7.1.0",
     "paneforge": "^0.0.6"
   }
 }

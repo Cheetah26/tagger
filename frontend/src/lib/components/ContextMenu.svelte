@@ -53,7 +53,10 @@
 <!-- Close the menu when the page is clicked -->
 <svelte:window on:click={() => (showMenu = false)} />
 
-<menu on:contextmenu|preventDefault={openMenu} class="inline {$$props.class}">
+<menu
+    on:contextmenu|preventDefault={openMenu}
+    class="inline-block {$$props.class}"
+>
     <slot></slot>
     {#if showMenu}
         <div

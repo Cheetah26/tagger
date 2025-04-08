@@ -1,42 +1,58 @@
 <script lang="ts">
+  import { TaggerService } from "$bindings/index";
   import type { Tag } from "$bindings/pkg/tagger";
   import ContextMenu from "$lib/components/ContextMenu.svelte";
   import Modal from "$lib/components/Modal.svelte";
   import TagEditor from "$lib/TagEditor.svelte";
-  import store from "$lib/store";
-  import { get } from "svelte/store";
   import type { Snippet } from "svelte";
+  import { appState } from "./state.svelte";
 
-  let { tag, children }: { tag: Tag; children: Snippet } = $props();
+  let {
+    tag,
+    children,
+    boundingElement,
+    class: suppliedClass,
+  }: {
+    tag: Tag;
+    children: Snippet;
+    boundingElement?: HTMLElement;
+    class?: string;
+  } = $props();
 
   let showEditModal = $state(false);
-  let editedTag = $state(tag);
 
-  async function submitEdit() {
-    await store.updateTag(editedTag);
+  let newName = $state(tag.name);
+  let newChildren = $state(tag.children);
+  let newParents = $state(tag.parents);
+
+  async function edit() {
+    await TaggerService.UpdateTag({
+      id: tag.id,
+      name: newName,
+      parents: newParents,
+      children: newChildren,
+    });
+    appState.allTags = await TaggerService.GetAllTags();
     showEditModal = false;
   }
 
-  function cancelEdit() {
+  function cancel() {
+    newName = tag.name;
+    newChildren = tag.children;
+    newParents = tag.parents;
+
     showEditModal = false;
-    editedTag = tag;
   }
 
-  async function addTagTag(tag: Tag) {
-    if (!editedTag.parents) {
-      editedTag.parents = [];
-    }
-    editedTag.parents = [...editedTag.parents, tag.id];
+  function addTagTag(tag: Tag) {
+    newParents.push(tag.id);
   }
 
-  async function removeTagTag(tag: Tag) {
-    console.log(editedTag.parents.filter((id) => id != tag.id));
-    editedTag.parents = editedTag.parents.filter((id) => id != tag.id);
+  function removeTagTag(tag: Tag) {
+    newParents = newParents.filter((id) => id != tag.id);
   }
-</script>
 
-<ContextMenu
-  menuItems={[
+  const menuItems = [
     {
       name: "Edit Tag",
       onClick: () => {
@@ -45,29 +61,37 @@
     },
     {
       name: "Delete Tag",
-      onClick: () => {
+      onClick: async () => {
         if (confirm("Really delete tag " + tag.name + "?")) {
-          store.removeTag(tag);
+          await TaggerService.RemoveTag(tag);
+          appState.allTags = await TaggerService.GetAllTags();
+
+          appState.selectedTags = appState.selectedTags.filter(
+            (t) => t.id != tag.id,
+          );
+          appState.getFiles();
         }
       },
     },
-  ]}>{@render children()}</ContextMenu
+  ];
+</script>
+
+<ContextMenu {menuItems} {boundingElement} class={suppliedClass}
+  >{@render children()}</ContextMenu
 >
 
 <Modal bind:open={showEditModal}>
-  <h1>Edit tag</h1>
-  <form onsubmitcapture={submitEdit}>
-    <p>Id: {editedTag.id}</p>
-    <label for="tag-name">Name:</label>
-    <input type="text" id="tag-name" bind:value={editedTag.name} />
+  <h1>Edit tag (id: {tag.id})</h1>
 
-    <TagEditor
-      tags={editedTag.parents.map((t) => get(store).tags[t])}
-      onAdd={addTagTag}
-      onRemove={removeTagTag}
-    ></TagEditor>
+  <label for="tag-name">Name:</label>
+  <input type="text" id="tag-name" bind:value={newName} />
 
-    <button onclick={cancelEdit}>Cancel</button>
-    <button type="submit">Submit</button>
-  </form>
+  <TagEditor
+    tags={newParents.map((t) => appState.allTags[t])}
+    onAdd={addTagTag}
+    onRemove={removeTagTag}
+  ></TagEditor>
+
+  <button onclick={cancel}>Cancel</button>
+  <button onclick={edit}>Submit</button>
 </Modal>

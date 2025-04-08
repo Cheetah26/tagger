@@ -1,38 +1,49 @@
 <script lang="ts">
-  import type { Tag } from "../../bindings/github.com/cheetah26/tagger/pkg/tagger";
-  import TagChip from "./TagChip.svelte";
-  import store from "./store";
+  import { TaggerService } from "$bindings/index";
+  import type { Tag } from "$bindings/pkg/tagger";
+  import Fuse from "fuse.js";
+  import EditableTag from "./EditableTag.svelte";
   import { getTagString } from "./lib";
+  import { appState } from "./state.svelte";
 
-  export let tags: Tag[] | undefined;
-  export let onAdd: (tag: Tag) => void;
-  export let onRemove: (tag: Tag) => void;
+  let {
+    tags,
+    onAdd,
+    onRemove,
+  }: { tags: Tag[]; onAdd: (tag: Tag) => void; onRemove: (tag: Tag) => void } =
+    $props();
 
   type Result = { tag: Tag; tagString: string };
 
-  let search = "";
-  let results: Result[] = [];
+  let search = $state("");
 
-  $: tagsWithStrings = $store.tags
-    ? Object.values($store.tags).map((t) => ({
-        tag: t,
-        tagString: getTagString(t),
-      }))
-    : [];
+  let tagsWithStrings = $derived(
+    appState.allTags
+      ? Object.values(appState.allTags).map((t) => ({
+          tag: t,
+          tagString: getTagString(t),
+        }))
+      : [],
+  );
 
-  $: results = tagsWithStrings
-    .filter((ts) => ts.tagString.includes(search))
-    .slice(0, 3);
+  let fuse = $derived(
+    new Fuse(tagsWithStrings, {
+      keys: ["tag.name", "tagString"],
+    }),
+  );
+
+  let results = $derived(fuse.search(search).slice(0, 3));
 
   async function newTagClicked() {
-    if (!confirm('Add new tag "' + search + '"?')) {
+    if (!confirm(`Create new tag "${search}"?`)) {
       return;
     }
-    const newTag = await store.addTag(search);
+    const newTag = await TaggerService.AddTag(search);
     if (newTag) {
+      appState.allTags = await TaggerService.GetAllTags();
       onAdd(newTag);
+      search = "";
     }
-    search = "";
   }
 
   function resultClicked(result: Result) {
@@ -42,25 +53,28 @@
 </script>
 
 <p>Tags:</p>
-{#if tags}
-  {#each tags as tag}
-    <TagChip {tag} cancelAction={() => onRemove(tag)}></TagChip>
-  {/each}
+{#each tags as tag}
+  <EditableTag {tag} class="m-2 p-1 border"
+    >{getTagString(tag)}<button
+      onclick={() => onRemove(tag)}
+      class="relative bottom-2 w-4 h-4 pl-1">x</button
+    ></EditableTag
+  >
 {:else}
-  <p>- No tags</p>
-{/if}
+  <p>No tags</p>
+{/each}
 
 <div class="relative">
   <div class="flex flex-row align-middle">
     <input type="text" bind:value={search} class="w-full h-8" />
-    <button on:click={newTagClicked}>+</button>
+    <button onclick={newTagClicked}>+</button>
   </div>
   {#if search.length}
     <ul class="absolute bg-white border-2 border-black w-full">
       {#each results as result}
         <li>
-          <button on:click={() => resultClicked(result)}
-            >{result.tagString}</button
+          <button onclick={() => resultClicked(result.item)}
+            >{result.item.tagString}</button
           >
         </li>
       {/each}

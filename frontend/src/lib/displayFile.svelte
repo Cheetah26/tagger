@@ -1,25 +1,29 @@
 <script lang="ts">
-  import TagEditor from "$lib/TagEditor.svelte";
-  import store from "$lib/store";
+  import { TaggerService } from "$bindings/index";
   import type { Tag } from "$bindings/pkg/tagger";
+  import TagEditor from "$lib/TagEditor.svelte";
   import { Pane, PaneGroup, PaneResizer } from "paneforge";
+  import { appState } from "./state.svelte";
 
-  let file = $derived($store.currentFile);
+  let file = $derived(appState.selectedFile);
   let filePath = $derived(file && `/file/${file.id}`);
 
   async function addTag(tag: Tag) {
     if (!file) return;
-    await store.tagFile(file, tag);
+    await TaggerService.TagFile(file, tag);
+    appState.getFiles();
   }
 
   async function removeTag(tag: Tag) {
     if (!file) return;
-    await store.untagFile(file, tag);
+    await TaggerService.UntagFile(file, tag);
+    appState.getFiles();
   }
 
   async function removeFile() {
     if (file && confirm("Are you sure?")) {
-      await store.removeFile(file);
+      await TaggerService.RemoveFile(file);
+      appState.getFiles();
     }
   }
 
@@ -70,23 +74,25 @@
         {/if}
       </Pane>
       <PaneResizer class="h-1 my-1 border"></PaneResizer>
-      <Pane defaultSize={2} class="overflow-y-auto">
-        <p class="break-all">{file.hash.slice(0, 8)}</p>
+      <Pane defaultSize={2}>
+        <div class="h-full overflow-y-auto">
+          <p class="break-all">{file.hash.slice(0, 8)}</p>
 
-        <!-- Tags -->
-        <TagEditor tags={file.tags} onAdd={addTag} onRemove={removeTag}
-        ></TagEditor>
+          <!-- Tags -->
+          <TagEditor tags={file.tags} onAdd={addTag} onRemove={removeTag}
+          ></TagEditor>
 
-        <p>Description:</p>
-        {#if file.description}
-          <p class="break-all">{file.description}</p>
-        {/if}
+          <p>Description:</p>
+          {#if file.description}
+            <p class="break-all">{file.description}</p>
+          {/if}
 
-        <p class="mt-4">
-          <button onclick={store.openCurrentFile}>Open</button>
-          <button onclick={store.revealCurrentFile}>Reveal</button>
-          <button onclick={removeFile}>Remove</button>
-        </p>
+          <p class="mt-4">
+            <button onclick={() => TaggerService.OpenFile(file)}>Open</button>
+            <button onclick={() => TaggerService.Reveal(file)}>Reveal</button>
+            <button onclick={removeFile}>Remove</button>
+          </p>
+        </div>
       </Pane>
     </PaneGroup>
   {/key}

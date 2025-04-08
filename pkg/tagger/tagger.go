@@ -23,7 +23,7 @@ func Open(path string) (*Tagger, error) {
 	dir, _ := filepath.Split(path)
 	t.dir = dir
 
-	db, err := sql.Open("sqlite3", path)
+	db, err := sql.Open("sqlite3", path+"?_foreign_keys=on")
 	if err != nil {
 		return nil, err
 	}

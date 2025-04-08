@@ -11,5 +11,8 @@ export default defineConfig({
       $lib: path.resolve("./src/lib"),
       $bindings: path.resolve("./bindings/github.com/cheetah26/tagger"),
     }
+  },
+  build: {
+    target: "esnext"
   }
 })

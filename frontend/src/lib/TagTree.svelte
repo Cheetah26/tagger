@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Tag } from "$bindings/pkg/tagger";
   import EditableTag from "./EditableTag.svelte";
-  import store from "./store";
+  import { appState } from "./state.svelte";
   import TagTree from "./TagTree.svelte";
 
   let {
@@ -12,13 +12,16 @@
     parentMustBeOpen?: boolean;
   } = $props();
 
-  let selected = $derived($store.currentTags.includes(tag));
-  function toggleSelected() {
+  let selected = $derived(appState.selectedTags.includes(tag));
+  async function toggleSelected() {
     if (selected) {
-      store.deselectTag(tag);
+      appState.selectedTags = appState.selectedTags.filter(
+        (t) => t.id != tag.id,
+      );
     } else {
-      store.selectTag(tag);
+      appState.selectedTags.push(tag);
     }
+    appState.getFiles();
   }
 
   $effect(() => {
@@ -32,7 +35,7 @@
     opened = mustBeOpen || !opened;
   }
 
-  let childTags = $derived(tag.children.map((c) => $store.tags[c]));
+  let childTags = $derived(tag.children.map((c) => appState.allTags[c]));
 </script>
 
 <li>

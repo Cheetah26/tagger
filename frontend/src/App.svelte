@@ -1,21 +1,36 @@
-<script>
-  import ListFile from "$lib/listFile.svelte";
-  import store from "$lib/store";
+<script lang="ts">
+  import { TaggerService } from "$bindings/index";
   import DisplayFile from "$lib/displayFile.svelte";
-  import TagListChip from "$lib/tagListChip.svelte";
-  import { Pane, PaneGroup, PaneResizer } from "paneforge";
+  import ListFile from "$lib/listFile.svelte";
+  import { appState } from "$lib/state.svelte";
   import TagTree from "$lib/TagTree.svelte";
+  import { Pane, PaneGroup, PaneResizer } from "paneforge";
 
   let rootTags = $derived(
-    Array.from(Object.values($store.tags)).filter((t) => t.parents.length == 0),
+    Array.from(Object.values(appState.allTags)).filter(
+      (t) => t.parents.length == 0,
+    ),
   );
+
+  async function open() {
+    await TaggerService.Open();
+    appState.currentFiles = await TaggerService.GetAllFiles();
+    appState.allTags = await TaggerService.GetAllTags();
+  }
+
+  async function importDialog() {
+    await TaggerService.ImportFilesDialog();
+    appState.getFiles();
+  }
 </script>
 
-<main class="h-screen overflow-hidden p-2 select-none cursor-default">
-  <div class="flex flex-row border-b [&>*]:mr-2">
-    <button onclick={store.open}>Open DB</button>
-    <button onclick={store.importFiles}>Import</button>
-    <button onclick={store.getUntaggedFiles}>Show Untagged files</button>
+<main
+  class="h-screen w-screen flex flex-col overflow-clip p-2 select-none cursor-default"
+>
+  <div class="flex flex-row shrink border-b [&>*]:mr-2">
+    <button onclick={open}>Open DB</button>
+    <button onclick={importDialog}>Import</button>
+    <!-- <button onclick={store.getUntaggedFiles}>Show Untagged files</button> -->
     <hr />
   </div>
 
@@ -32,10 +47,12 @@
     <PaneResizer class="w-1 m-1 border"></PaneResizer>
     <Pane defaultSize={1}>
       <div class="h-full overflow-y-scroll">
-        <p>Files: ({$store.files ? $store.files.length : 0})</p>
-        {#if $store.files}
+        <p>
+          Files: ({appState.currentFiles ? appState.currentFiles.length : 0})
+        </p>
+        {#if appState.currentFiles}
           <ul>
-            {#each $store.files as file}
+            {#each appState.currentFiles as file}
               <li>
                 <ListFile {file}></ListFile>
               </li>
