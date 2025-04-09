@@ -58,7 +58,7 @@
   <p>No file selected</p>
 {:else}
   {#key file.id}
-    <PaneGroup direction="vertical">
+    <PaneGroup direction="vertical" autoSaveId="display-file">
       <Pane defaultSize={1}>
         <!-- Preview file -->
         {#if imageFormats.includes(file.filetype)}

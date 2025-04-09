@@ -1,7 +1,7 @@
 <script lang="ts">
   import { TaggerService } from "$bindings/index";
-  import DisplayFile from "$lib/displayFile.svelte";
-  import ListFile from "$lib/listFile.svelte";
+  import DisplayFile from "$lib/FileDisplay.svelte";
+  import ListFiles from "$lib/FileList.svelte";
   import { appState } from "$lib/state.svelte";
   import TagTree from "$lib/TagTree.svelte";
   import { Pane, PaneGroup, PaneResizer } from "paneforge";
@@ -34,7 +34,7 @@
     <hr />
   </div>
 
-  <PaneGroup direction="horizontal">
+  <PaneGroup direction="horizontal" autoSaveId="app">
     <Pane defaultSize={1} class="min-w-fit">
       <div class="h-full overflow-y-scroll pr-6">
         <ul>
@@ -45,23 +45,8 @@
       </div>
     </Pane>
     <PaneResizer class="w-1 m-1 border"></PaneResizer>
-    <Pane defaultSize={1}>
-      <div class="h-full overflow-y-scroll">
-        <p>
-          Files: ({appState.currentFiles ? appState.currentFiles.length : 0})
-        </p>
-        {#if appState.currentFiles}
-          <ul>
-            {#each appState.currentFiles as file}
-              <li>
-                <ListFile {file}></ListFile>
-              </li>
-            {/each}
-          </ul>
-        {:else}
-          <h1>No files in current selection</h1>
-        {/if}
-      </div>
+    <Pane defaultSize={1} class="min-w-40">
+      <ListFiles></ListFiles>
     </Pane>
     <PaneResizer class="w-1 mx-1 border"></PaneResizer>
     <Pane defaultSize={2}>
