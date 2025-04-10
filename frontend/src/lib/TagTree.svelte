@@ -12,7 +12,7 @@
     parentMustBeOpen?: boolean;
   } = $props();
 
-  let selected = $derived(appState.selectedTags.includes(tag));
+  let selected = $derived(appState.selectedTags.some((t) => t.id == tag.id));
   async function toggleSelected() {
     if (selected) {
       appState.selectedTags = appState.selectedTags.filter(

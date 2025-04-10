@@ -25,7 +25,7 @@
   let newChildren = $state(tag.children);
   let newParents = $state(tag.parents);
 
-  async function edit() {
+  async function submit() {
     await TaggerService.UpdateTag({
       id: tag.id,
       name: newName,
@@ -33,6 +33,7 @@
       children: newChildren,
     });
     appState.allTags = await TaggerService.GetAllTags();
+    appState.getFiles();
     showEditModal = false;
   }
 
@@ -93,5 +94,5 @@
   ></TagEditor>
 
   <button onclick={cancel}>Cancel</button>
-  <button onclick={edit}>Submit</button>
+  <button onclick={submit}>Submit</button>
 </Modal>

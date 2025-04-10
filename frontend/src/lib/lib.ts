@@ -2,15 +2,13 @@ import type { Tag } from "$bindings/pkg/tagger";
 import { appState } from "./state.svelte";
 
 export function getTagString(tag: Tag): string {
-  let result = tag.name
+  return tag.name + ' ' + tagStringHelper(tag);
+}
 
+function tagStringHelper(tag: Tag): string {
   if (!tag.parents || tag.parents.length == 0) {
-    return result
+    return "";
   }
 
-  result += "("
-  result += tag.parents.map(p => getTagString(appState.allTags[p])).join(", ")
-  result += ")"
-
-  return result
+  return `(${tag.parents.map(p => appState.allTags[p].name + tagStringHelper(appState.allTags[p])).join(", ")})`;
 }
