@@ -5,12 +5,13 @@ package fuse
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
-	"syscall"
+	"sync"
 	"time"
 
 	"github.com/cheetah26/tagger/pkg/tagger"
@@ -34,23 +35,21 @@ func pathToDirs(path string) []string {
 	return strings.Split(path, string(filepath.Separator))
 }
 
-var (
-	ErrMountFailed   = errors.New("mount failed")
-	ErrUnmountFailed = errors.New("unmount failed")
-)
-
 // A null file handle
 const nullFH = ^uint64(0)
 
 var (
-	dirStat  = &fuse.Stat_t{Mode: fuse.S_IFDIR | 0700}
-	fileStat = &fuse.Stat_t{Mode: fuse.S_IFREG | 0700}
+	dirStat  = &fuse.Stat_t{Mode: fuse.S_IFDIR | 0755}
+	fileStat = &fuse.Stat_t{Mode: fuse.S_IFREG | 0755}
 )
 
 type TaggerFS struct {
 	t *tagger.Tagger
 
 	errChan chan error
+
+	openFiles      map[uint64]*os.File
+	openFilesMutex sync.Mutex
 
 	// Inherit default filesystem actions
 	fuse.FileSystemBase
@@ -74,8 +73,9 @@ func Mount(mountpoint string, tagger *tagger.Tagger) (func() error, <-chan error
 	errChan := make(chan error, 1)
 
 	tfs := &TaggerFS{
-		t:       tagger,
-		errChan: errChan,
+		t:         tagger,
+		errChan:   errChan,
+		openFiles: make(map[uint64]*os.File),
 	}
 
 	host := fuse.NewFileSystemHost(tfs)
@@ -87,7 +87,7 @@ func Mount(mountpoint string, tagger *tagger.Tagger) (func() error, <-chan error
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				errChan <- fmt.Errorf("fuse error: %v", r)
+				errChan <- fmt.Errorf("fuse panic: %v", r)
 			}
 		}()
 		ok := host.Mount(mountpoint, nil)
@@ -112,6 +112,20 @@ func Mount(mountpoint string, tagger *tagger.Tagger) (func() error, <-chan error
 	}
 
 	return unmount, errChan, nil
+}
+
+// Attempt to get a file from its handle, or path if the handle is nil. Returns nil file if no such file is open
+func (tfs *TaggerFS) getFileEntry(path string, fh uint64) *os.File {
+	if fh == nullFH {
+		for _, f := range tfs.openFiles {
+			if f.Name() == path {
+				return f
+			}
+		}
+		return nil
+	}
+
+	return tfs.openFiles[fh]
 }
 
 // Statfs gets file system statistics.
@@ -166,24 +180,36 @@ func (tfs *TaggerFS) Open(path string, flags int) (errc int, fh uint64) {
 		if errors.Is(err, tagger.ErrFileNotExist) {
 			return -fuse.ENOSYS, nullFH
 		} else {
-			tfs.errChan <- err
+			tfs.errChan <- NewTFSError("Open", err)
 			return -fuse.EIO, nullFH
 		}
 	}
 
-	handle, err := syscall.Open(
+	sourceFile, err := os.OpenFile(
 		tfs.t.GetFilepath(file),
 		flags,
-		0,
+		os.FileMode(0),
 	)
 
 	if err != nil {
-		tfs.errChan <- err
+		tfs.errChan <- NewTFSError("Open", err)
 		return -fuse.EIO, nullFH
 	}
 
-	return 0, uint64(handle)
+	tfs.openFilesMutex.Lock()
+	defer tfs.openFilesMutex.Unlock()
 
+	handle := uint64(0)
+	for {
+		if tfs.openFiles[handle] == nil {
+			break
+		}
+		handle += 1
+	}
+
+	tfs.openFiles[handle] = sourceFile
+
+	return 0, handle
 }
 
 // Getattr gets file attributes.
@@ -193,7 +219,7 @@ func (tfs *TaggerFS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc in
 
 	file, err := tfs.t.GetFile(id)
 	if err != nil && !errors.Is(err, tagger.ErrFileNotExist) {
-		tfs.errChan <- err
+		tfs.errChan <- NewTFSError("Getattr", err)
 		return -fuse.ENOENT
 	}
 
@@ -206,7 +232,7 @@ func (tfs *TaggerFS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc in
 	// file
 	info, err := os.Stat(tfs.t.GetFilepath(file))
 	if err != nil {
-		tfs.errChan <- err
+		tfs.errChan <- NewTFSError("Getattr", err)
 		return -fuse.ENOENT
 	}
 
@@ -214,14 +240,23 @@ func (tfs *TaggerFS) Getattr(path string, stat *fuse.Stat_t, fh uint64) (errc in
 	stat.Size = info.Size()
 	stat.Mtim = fuse.NewTimespec(info.ModTime())
 
+	UID, GID, _ := fuse.Getcontext()
+	stat.Uid = UID
+	stat.Gid = GID
+
 	return 0
 }
 
 // Truncate changes the size of a file.
 func (tfs *TaggerFS) Truncate(path string, size int64, fh uint64) int {
-	err := syscall.Ftruncate(int(fh), size)
+	file := tfs.getFileEntry(path, fh)
+	if file == nil {
+		return -fuse.ENOENT
+	}
+
+	err := file.Truncate(size)
 	if err != nil {
-		tfs.errChan <- err
+		tfs.errChan <- NewTFSError("Truncate", err)
 		return -fuse.EIO
 	}
 
@@ -230,9 +265,14 @@ func (tfs *TaggerFS) Truncate(path string, size int64, fh uint64) int {
 
 // Read reads data from a file.
 func (tfs *TaggerFS) Read(path string, buff []byte, offset int64, fh uint64) (numBytes int) {
-	numBytes, err := syscall.Pread(int(fh), buff, offset)
-	if err != nil {
-		tfs.errChan <- err
+	file := tfs.getFileEntry(path, fh)
+	if file == nil {
+		return -fuse.ENOENT
+	}
+
+	numBytes, err := file.ReadAt(buff, offset)
+	if err != nil && !errors.Is(err, io.EOF) {
+		tfs.errChan <- NewTFSError("Read", err)
 		return -fuse.EIO
 	}
 
@@ -241,9 +281,14 @@ func (tfs *TaggerFS) Read(path string, buff []byte, offset int64, fh uint64) (nu
 
 // Write writes data to a file.
 func (tfs *TaggerFS) Write(path string, buff []byte, offset int64, fh uint64) (numBytes int) {
-	numBytes, err := syscall.Pwrite(int(fh), buff, offset)
+	file := tfs.getFileEntry(path, fh)
+	if file == nil {
+		return -fuse.ENOENT
+	}
+
+	numBytes, err := file.WriteAt(buff, offset)
 	if err != nil {
-		tfs.errChan <- err
+		tfs.errChan <- NewTFSError("Write", err)
 		return -fuse.EIO
 	}
 
@@ -252,10 +297,24 @@ func (tfs *TaggerFS) Write(path string, buff []byte, offset int64, fh uint64) (n
 
 // Release closes an open file.
 func (tfs *TaggerFS) Release(path string, fh uint64) (errc int) {
-	err := syscall.Close(int(fh))
+	tfs.openFilesMutex.Lock()
+	defer tfs.openFilesMutex.Unlock()
+
+	file := tfs.getFileEntry(path, fh)
+	if file == nil {
+		return -fuse.ENOENT
+	}
+
+	err := file.Close()
 	if err != nil {
-		tfs.errChan <- err
+		tfs.errChan <- NewTFSError("Release", err)
 		return -fuse.EIO
+	}
+
+	for h, f := range tfs.openFiles {
+		if f == file {
+			tfs.openFiles[h] = nil
+		}
 	}
 
 	return 0
@@ -281,7 +340,7 @@ func (tfs *TaggerFS) Opendir(path string) (errc int, fh uint64) {
 				// this dir doesn't exist if its path includes a non-tag
 				return -fuse.ENOTDIR, nullFH
 			} else {
-				tfs.errChan <- err
+				tfs.errChan <- NewTFSError("Opendir", err)
 				return -fuse.EIO, nullFH
 			}
 		}
@@ -302,7 +361,7 @@ func (tfs *TaggerFS) Readdir(
 
 	tags, err := tfs.t.GetAllTags()
 	if err != nil {
-		tfs.errChan <- err
+		tfs.errChan <- NewTFSError("Readdir", err)
 		return -fuse.EIO
 	}
 
@@ -327,7 +386,7 @@ func (tfs *TaggerFS) Readdir(
 			files, err = tfs.t.GetAllFiles()
 		}
 		if err != nil {
-			tfs.errChan <- err
+			tfs.errChan <- NewTFSError("Readdir", err)
 			return -fuse.EIO
 		}
 
@@ -343,7 +402,7 @@ func (tfs *TaggerFS) Readdir(
 		for _, tag := range tags {
 			files, err := tfs.t.GetFilesByTag(append(selectedTags, tag))
 			if err != nil {
-				tfs.errChan <- err
+				tfs.errChan <- NewTFSError("Readdir", err)
 				continue
 			}
 
@@ -369,7 +428,7 @@ func (tfs *TaggerFS) Readdir(
 		for _, tag := range tags {
 			files, err := tfs.t.GetFilesByTag(append(selectedTags, tag))
 			if err != nil {
-				tfs.errChan <- err
+				tfs.errChan <- NewTFSError("Readdir", err)
 				continue
 			}
 
