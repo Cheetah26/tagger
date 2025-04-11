@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"os"
 
 	"github.com/cheetah26/tagger/pkg/tagger"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -31,8 +30,8 @@ func (s *TaggerService) ServiceStartup(ctx context.Context, options application.
 func (a *TaggerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fileId, err := strconv.ParseInt(r.URL.Path, 10, 64)
 	if err != nil {
-		w.Write([]byte(err.Error()))
 		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(err.Error()))
 		return
 	}
 
@@ -45,15 +44,7 @@ func (a *TaggerService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	filePath := a.GetFilepath(file)
 
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		w.Write([]byte(err.Error()))
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	w.Header().Set("Content-Type", "")
-	w.Write(data)
+	http.ServeFile(w, r, filePath)
 }
 
 func (a *TaggerService) Open() error {
