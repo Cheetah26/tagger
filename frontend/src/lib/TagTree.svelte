@@ -35,7 +35,11 @@
     opened = mustBeOpen || !opened;
   }
 
-  let childTags = $derived(tag.children.map((c) => appState.allTags[c]));
+  let childTags = $derived(
+    appState.tagIdsOrdered
+      .filter((id) => tag.children.includes(id))
+      .map((childId) => appState.allTags[childId]),
+  );
 </script>
 
 <li>

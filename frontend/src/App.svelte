@@ -6,9 +6,9 @@
   import TagTree from "$lib/TagTree.svelte";
   import { Pane, PaneGroup, PaneResizer } from "paneforge";
 
-  let rootTags = $derived(
-    Array.from(Object.values(appState.allTags)).filter(
-      (t) => t.parents.length == 0,
+  let rootTagIds = $derived(
+    appState.tagIdsOrdered.filter(
+      (id) => appState.allTags[id].parents.length == 0,
     ),
   );
 
@@ -16,6 +16,9 @@
     await TaggerService.Open();
     appState.currentFiles = await TaggerService.GetAllFiles();
     appState.allTags = await TaggerService.GetAllTags();
+    appState.tagIdsOrdered = await TaggerService.GetTagIdsOrdered(
+      appState.tagOrdering,
+    );
   }
 
   async function importDialog() {
@@ -38,8 +41,8 @@
     <Pane defaultSize={1} class="min-w-fit">
       <div class="h-full overflow-y-scroll pr-6">
         <ul>
-          {#each rootTags as tag}
-            <TagTree {tag}></TagTree>
+          {#each rootTagIds as id}
+            <TagTree tag={appState.allTags[id]}></TagTree>
           {/each}
         </ul>
       </div>

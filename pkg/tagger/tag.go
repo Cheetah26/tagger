@@ -45,11 +45,9 @@ func (t *Tagger) GetTagById(id TagID) (*Tag, error) {
 		return nil, NewDatabaseError(err)
 	}
 
-	parents, err := t.getParentTagIds(&tag)
-	if err != nil {
-		return nil, err
+	if err := t.getRelativeTags(&tag); err != nil {
+		return nil, NewDatabaseError(err)
 	}
-	tag.Parents = parents
 
 	return &tag, nil
 }
@@ -66,11 +64,9 @@ func (t *Tagger) GetTagByName(name string) (*Tag, error) {
 		return nil, NewDatabaseError(err)
 	}
 
-	parents, err := t.getParentTagIds(&tag)
-	if err != nil {
-		return nil, err
+	if err := t.getRelativeTags(&tag); err != nil {
+		return nil, NewDatabaseError(err)
 	}
-	tag.Parents = parents
 
 	return &tag, nil
 }
@@ -204,4 +200,53 @@ func (t *Tagger) UpdateTag(tag *Tag) error {
 	}
 
 	return allErrorsJoined
+}
+
+type TagOrdering int
+
+const (
+	Id        TagOrdering = iota // Ascending
+	Name                         // Ascending
+	FileCount                    // Descending
+)
+
+func (t *Tagger) GetTagIdsOrdered(ordering TagOrdering) ([]TagID, error) {
+	var ids []TagID
+
+	var rows *sql.Rows
+	var err error
+	switch ordering {
+	case Id:
+		rows, err = t.db.Query("SELECT Id FROM Tags ORDER BY Id")
+	case Name:
+		rows, err = t.db.Query("SELECT Id FROM Tags ORDER BY Name")
+	case FileCount:
+		rows, err = t.db.Query(`
+			SELECT Id
+			FROM (
+				SELECT Id, Name, FileId
+				FROM Tags
+				LEFT JOIN FileTag ON Id = TagId
+				UNION
+				SELECT ParentTagId AS Id, "", FileId
+				FROM TagTag
+				INNER JOIN FileTag ON ChildTagId = TagId
+			)
+			GROUP BY Id
+			ORDER BY Count(DISTINCT FileId) DESC
+		`)
+	}
+
+	if err != nil {
+		return nil, NewDatabaseError(err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uint64
+		rows.Scan(&id)
+		ids = append(ids, TagID(id))
+	}
+
+	return ids, nil
 }

@@ -1,9 +1,12 @@
 import { TaggerService } from "$bindings/index";
-import type { File, Tag, TagMap } from "$bindings/pkg/tagger";
+import { TagOrdering, type File, type Tag, type TagID, type TagMap } from "$bindings/pkg/tagger";
 
 class AppState {
   allTags = $state({} as TagMap);
   selectedTags = $state([] as Tag[]);
+
+  tagOrdering = $state(TagOrdering.FileCount);
+  tagIdsOrdered = $state([] as TagID[]);
 
   currentFiles = $state([] as File[]);
   selectedFile = $state(undefined as File | undefined);
