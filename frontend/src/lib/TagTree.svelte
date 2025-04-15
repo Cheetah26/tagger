@@ -13,6 +13,20 @@
   } = $props();
 
   let selected = $derived(appState.selectedTags.some((t) => t.id == tag.id));
+
+  let opened = $state(false);
+  let mustBeOpen = $state(false);
+
+  let childTags = $derived(
+    appState.tagIdsOrdered
+      .filter((id) => tag.children.includes(id))
+      .map((childId) => appState.allTags[childId]),
+  );
+
+  $effect(() => {
+    parentMustBeOpen = selected || mustBeOpen;
+  });
+
   async function toggleSelected() {
     if (selected) {
       appState.selectedTags = appState.selectedTags.filter(
@@ -24,51 +38,38 @@
     appState.getFiles();
   }
 
-  $effect(() => {
-    parentMustBeOpen = selected || mustBeOpen;
-  });
-
-  let mustBeOpen = $state(false);
-
-  let opened = $state(false);
   function toggleOpened() {
     opened = mustBeOpen || !opened;
   }
-
-  let childTags = $derived(
-    appState.tagIdsOrdered
-      .filter((id) => tag.children.includes(id))
-      .map((childId) => appState.allTags[childId]),
-  );
 </script>
 
 <li>
-  <p class="flex flex-row items-center text-nowrap">
+  <span class="flex flex-row items-center justify-start text-nowrap">
     {#if childTags.length > 0}
-      <svg
-        id="triangle"
-        viewBox="0 0 100 100"
-        class="w-2 h-2 {opened ? 'rotate-180' : ''} duration-200"
-      >
-        <polygon points="50 15, 100 100, 0 100" />
-      </svg>
-
-      <EditableTag {tag}>
-        <button onclick={toggleOpened}
-          ><span class={selected ? "bg-green-500" : "bg-white"}
-            >{tag.name} ({tag.children.length})</span
-          ></button
-        ></EditableTag
-      >
+      <button onclick={toggleOpened} class="grow text-left">
+        <svg
+          viewBox="0 0 100 100"
+          class="h-3 w-3 inline duration-300 m-1 p-0 fill-none stroke-black stroke-[1rem] {opened
+            ? 'rotate-180'
+            : ''}"
+          focusable="false"
+        >
+          <polygon points="50 15, 100 100, 0 100" />
+        </svg>
+        <EditableTag {tag}>{tag.name} ({tag.children.length})</EditableTag>
+      </button>
     {:else}
-      <EditableTag {tag}
-        ><span class={selected ? "bg-green-500" : "bg-white"}>{tag.name}</span
-        ></EditableTag
-      >
+      <EditableTag {tag} class="grow">{tag.name}</EditableTag>
     {/if}
-    <span class="flex-grow"></span>
-    <button onclick={toggleSelected} class="px-1 border">+</button>
-  </p>
+
+    <input
+      type="checkbox"
+      id={String(tag.id)}
+      checked={selected}
+      onchange={toggleSelected}
+      class="m-1"
+    />
+  </span>
   {#if opened}
     <ul class="pl-4">
       {#each childTags as child}

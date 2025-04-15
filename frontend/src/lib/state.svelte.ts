@@ -5,6 +5,8 @@ class AppState {
   allTags = $state({} as TagMap);
   selectedTags = $state([] as Tag[]);
 
+  showUntagged = $state(false);
+
   tagOrdering = $state(TagOrdering.FileCount);
   tagIdsOrdered = $state([] as TagID[]);
 
@@ -12,7 +14,9 @@ class AppState {
   selectedFile = $state(undefined as File | undefined);
 
   async getFiles() {
-    if (this.selectedTags.length == 0) {
+    if (this.showUntagged) {
+      this.currentFiles = await TaggerService.GetUntaggedFiles();
+    } else if (this.selectedTags.length == 0) {
       this.currentFiles = await TaggerService.GetAllFiles()
     } else {
       this.currentFiles = await TaggerService.GetFilesByTag(this.selectedTags);

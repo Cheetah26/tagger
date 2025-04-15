@@ -1,5 +1,6 @@
 <script lang="ts">
   import { TaggerService } from "$bindings/index";
+  import { GetFile } from "$bindings/taggerservice";
   import DisplayFile from "$lib/FileDisplay.svelte";
   import ListFiles from "$lib/FileList.svelte";
   import { appState } from "$lib/state.svelte";
@@ -25,21 +26,54 @@
     await TaggerService.ImportFilesDialog();
     appState.getFiles();
   }
+
+  async function clear() {
+    appState.showUntagged = false;
+    appState.selectedTags = [];
+    appState.allTags = await TaggerService.GetAllTags();
+    appState.currentFiles = await TaggerService.GetAllFiles();
+  }
+
+  async function toggleUntagged() {
+    appState.showUntagged = !appState.showUntagged;
+    if (appState.showUntagged) {
+      appState.selectedTags = [];
+    }
+    appState.getFiles();
+  }
+  $effect(() => {
+    if (appState.selectedTags.length > 0) {
+      appState.showUntagged = false;
+      appState.getFiles();
+    }
+  });
 </script>
 
 <main
-  class="h-screen w-screen flex flex-col overflow-clip p-2 select-none cursor-default"
+  class="h-screen w-screen flex flex-col overflow-clip select-none cursor-default"
 >
   <div class="flex flex-row shrink border-b [&>*]:mr-2">
     <button onclick={open}>Open DB</button>
     <button onclick={importDialog}>Import</button>
-    <!-- <button onclick={store.getUntaggedFiles}>Show Untagged files</button> -->
     <hr />
   </div>
 
   <PaneGroup direction="horizontal" autoSaveId="app">
-    <Pane defaultSize={1} class="min-w-fit">
-      <div class="h-full overflow-y-scroll pr-6">
+    <Pane defaultSize={1} class="min-w-fit p-1">
+      <div class="h-full overflow-y-scroll pr-5">
+        <button class="w-full" onclick={clear}>Clear Filters</button>
+
+        <div class="flex flex-row items-center border-b">
+          <label for="untagged" class="flex-grow">Untagged</label>
+          <input
+            type="checkbox"
+            id="untagged"
+            checked={appState.showUntagged}
+            onclick={toggleUntagged}
+            class="m-1"
+          />
+        </div>
+
         <ul>
           {#each rootTagIds as id}
             <TagTree tag={appState.allTags[id]}></TagTree>
@@ -47,11 +81,11 @@
         </ul>
       </div>
     </Pane>
-    <PaneResizer class="w-1 m-1 border"></PaneResizer>
-    <Pane defaultSize={1} class="min-w-40">
-      <ListFiles></ListFiles>
+    <PaneResizer class="w-1 border"></PaneResizer>
+    <Pane defaultSize={1} class="min-w-40 p-1">
+      <ListFiles />
     </Pane>
-    <PaneResizer class="w-1 mx-1 border"></PaneResizer>
+    <PaneResizer class="w-1 border"></PaneResizer>
     <Pane defaultSize={2}>
       <DisplayFile />
     </Pane>
