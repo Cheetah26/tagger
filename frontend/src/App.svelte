@@ -1,7 +1,6 @@
 <script lang="ts">
   import { TaggerService } from "$bindings/index";
-  import { GetFile } from "$bindings/taggerservice";
-  import DisplayFile from "$lib/FileDisplay.svelte";
+  import FilePane from "$lib/File/FilePane.svelte";
   import ListFiles from "$lib/FileList.svelte";
   import { appState } from "$lib/state.svelte";
   import TagTree from "$lib/TagTree.svelte";
@@ -15,11 +14,15 @@
 
   async function open() {
     await TaggerService.Open();
+
     appState.currentFiles = await TaggerService.GetAllFiles();
+    appState.selectedFile = undefined;
+
     appState.allTags = await TaggerService.GetAllTags();
     appState.tagIdsOrdered = await TaggerService.GetTagIdsOrdered(
       appState.tagOrdering,
     );
+    appState.selectedTags = [];
   }
 
   async function importDialog() {
@@ -59,7 +62,7 @@
   </div>
 
   <PaneGroup direction="horizontal" autoSaveId="app">
-    <Pane defaultSize={1} class="min-w-fit p-1">
+    <Pane defaultSize={1} minSize={15} class="p-1">
       <div class="h-full overflow-y-scroll pr-5">
         <button class="w-full" onclick={clear}>Clear Filters</button>
 
@@ -82,12 +85,12 @@
       </div>
     </Pane>
     <PaneResizer class="w-1 border"></PaneResizer>
-    <Pane defaultSize={1} class="min-w-40 p-1">
+    <Pane defaultSize={1} minSize={15} class="p-1">
       <ListFiles />
     </Pane>
     <PaneResizer class="w-1 border"></PaneResizer>
-    <Pane defaultSize={2}>
-      <DisplayFile />
+    <Pane defaultSize={2} minSize={25}>
+      <FilePane />
     </Pane>
   </PaneGroup>
 </main>

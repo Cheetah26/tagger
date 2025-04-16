@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { TaggerService } from "$bindings/index";
+  import type { File } from "$bindings/pkg/tagger";
   import { Pane, PaneGroup, PaneResizer } from "paneforge";
   import { appState } from "./state.svelte";
 
@@ -7,6 +7,14 @@
   let idColWidth = $state(0);
 
   let idColPane = $state(undefined);
+
+  function toggleSelected(file: File) {
+    if (appState.selectedFile?.id == file.id) {
+      appState.selectedFile = undefined;
+    } else {
+      appState.selectedFile = file;
+    }
+  }
 </script>
 
 {#if appState.currentFiles}
@@ -29,8 +37,7 @@
       {#each appState.currentFiles as file}
         {@const selected = appState.selectedFile?.id == file.id}
         <tr
-          onclick={() => (appState.selectedFile = file)}
-          ondblclick={() => TaggerService.OpenFile(file)}
+          onclick={() => toggleSelected(file)}
           class="flex flex-row {selected && 'bg-green-300'}"
         >
           <td

@@ -269,6 +269,18 @@ func (t *Tagger) UntagFile(file *File, tag *Tag) error {
 	return NewDatabaseError(err)
 }
 
+func (t *Tagger) UpdateFileDescription(file *File) error {
+	res, err := t.db.Exec("UPDATE Files SET Description = ? WHERE Id = ?", file.Description, file.Id)
+	if err != nil {
+		return NewDatabaseError(err)
+	}
+	if affected, _ := res.RowsAffected(); affected < 1 {
+		return ErrFileNotExist
+	}
+
+	return nil
+}
+
 // Remove a file from the database and disk
 // If the file is not found on disk, assume that it was deleted and proceed normally
 func (t *Tagger) RemoveFile(file *File) error {
